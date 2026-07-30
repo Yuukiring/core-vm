@@ -68,8 +68,10 @@ struct WarlockConflagrateScript : SpellScript
         Unit::AuraList const& auras = spell->m_targets.getUnitTarget()->GetAurasByType(SPELL_AURA_PERIODIC_DAMAGE);
         for (const auto periodicDamageAura : auras)
         {
-            // Immolate
-            if (periodicDamageAura->GetSpellProto()->IsFitToFamily<SPELLFAMILY_WARLOCK, CF_WARLOCK_IMMOLATE>() &&
+            // Immolate/Curse of Agony/Corruption
+            if ((periodicDamageAura->GetSpellProto()->IsFitToFamily<SPELLFAMILY_WARLOCK, CF_WARLOCK_IMMOLATE>() ||
+                 periodicDamageAura->GetSpellProto()->IsFitToFamily<SPELLFAMILY_WARLOCK, CF_WARLOCK_CURSE_OF_AGONY>() ||
+                 periodicDamageAura->GetSpellProto()->IsFitToFamily<SPELLFAMILY_WARLOCK, CF_WARLOCK_CORRUPTION>()) &&
                 periodicDamageAura->GetCasterGuid() == spell->m_caster->GetObjectGuid())
             {
                 found = true;
@@ -89,6 +91,7 @@ struct WarlockConflagrateScript : SpellScript
         {
             // for caster applied auras only
             Unit::AuraList const& auras = spell->GetUnitTarget()->GetAurasByType(SPELL_AURA_PERIODIC_DAMAGE);
+            float coefficientImmolate = 0.0f, coefficientCurseOfAgony = 0.0f, coefficientCorruption = 0.0f;
             for (const auto i : auras)
             {
                 // Immolate
@@ -96,9 +99,42 @@ struct WarlockConflagrateScript : SpellScript
                     i->GetCasterGuid() == spell->m_caster->GetObjectGuid())
                 {
                     spell->GetUnitTarget()->RemoveAurasByCasterSpell(i->GetId(), spell->m_caster->GetObjectGuid());
+                    coefficientImmolate = (float(i->GetSpellProto()->spellLevel) / float(spell->m_spellInfo->spellLevel)) * 0.75f;
+                    if (coefficientImmolate > 0.75f)
+                        coefficientImmolate = 0.75f;
                     break;
                 }
             }
+            for (const auto i : auras)
+            {
+                // Curse of Agony
+                if (i->GetSpellProto()->IsFitToFamily<SPELLFAMILY_WARLOCK, CF_WARLOCK_CURSE_OF_AGONY>() &&
+                    i->GetCasterGuid() == spell->m_caster->GetObjectGuid())
+                {
+                    spell->GetUnitTarget()->RemoveAurasByCasterSpell(i->GetId(), spell->m_caster->GetObjectGuid());
+                    coefficientCurseOfAgony = (float(i->GetSpellProto()->spellLevel) / float(spell->m_spellInfo->spellLevel)) * 1.5f;
+                    if (coefficientCurseOfAgony > 1.5f)
+                        coefficientCurseOfAgony = 1.5f;
+                    break;
+                }
+            }
+            for (const auto i : auras)
+            {
+                // Corruption
+                if (i->GetSpellProto()->IsFitToFamily<SPELLFAMILY_WARLOCK, CF_WARLOCK_CORRUPTION>() &&
+                    i->GetCasterGuid() == spell->m_caster->GetObjectGuid())
+                {
+                    spell->GetUnitTarget()->RemoveAurasByCasterSpell(i->GetId(), spell->m_caster->GetObjectGuid());
+                    coefficientCorruption = (float(i->GetSpellProto()->spellLevel) / float(spell->m_spellInfo->spellLevel)) * 1.125f;
+                    if (coefficientCorruption > 1.125f)
+                        coefficientCorruption = 1.125f;
+                    break;
+                }
+            }
+            spell->damage = spell->damage * (coefficientImmolate + coefficientCurseOfAgony + coefficientCorruption + 1.0f);
+            // Wildfire - Conflagrate
+            if (spell->m_casterUnit->HasAura(34359) && spell->GetUnitTarget()->GetHealthPercent() < 50.0f)
+                spell->damage = spell->damage * 1.3f;
         }
         return true;
     }
@@ -139,6 +175,35 @@ struct WarlockLifeTapScript : SpellScript
 
             dmg = spell->m_casterUnit->SpellDamageBonusDone(spell->m_casterUnit, spell->m_spellInfo, effIdx, dmg > 0 ? dmg : 0, SPELL_DIRECT_DAMAGE);
             dmg = spell->m_casterUnit->SpellDamageBonusTaken(spell->m_casterUnit, spell->m_spellInfo, effIdx, dmg, SPELL_DIRECT_DAMAGE);
+            //JieFuFuTi(34001) reduce taken damage do not work on life tap.
+            if(spell->m_casterUnit->HasAura(34001)){
+                uint32 jiefufuti = sWorld.getConfig(CONFIG_UINT32_BUFF_JIEFUFUTI_COMMON);
+                if (MapEntry const* mapEntry = spell->m_casterUnit->GetMap()->GetMapEntry())
+                {
+                    switch (mapEntry->mapType)
+                    {
+                        case MAP_INSTANCE:
+                            jiefufuti = sWorld.getConfig(CONFIG_UINT32_BUFF_JIEFUFUTI_INSTANCE);
+                            break;
+                        case MAP_RAID:
+                            jiefufuti = sWorld.getConfig(CONFIG_UINT32_BUFF_JIEFUFUTI_RAID);
+                            break;
+                        case MAP_BATTLEGROUND:
+                            jiefufuti = sWorld.getConfig(CONFIG_UINT32_BUFF_JIEFUFUTI_BATTLEGROUND);
+                            break;
+                        default:
+                            break;
+                    }
+                }
+                if (jiefufuti > 99)
+                    jiefufuti = 99;
+                if(Player* pCasterUnit = ::ToPlayer(spell->m_casterUnit))
+                {
+                    if (pCasterUnit->GetLevel() < 60 && pCasterUnit->GetQuestStatus(10000) == QUEST_STATUS_COMPLETE)
+                        jiefufuti = 0;
+                }
+                dmg = (100.0f / (100.0f - jiefufuti)) * dmg;
+            }
             int32 idmg = rand_dither(dmg);
 
             if (int32(spell->m_casterUnit->GetHealth()) > idmg)
@@ -208,25 +273,33 @@ struct WarlockDevourMagicScript : SpellScript
         if (effIdx == EFFECT_INDEX_0 && spell->m_casterUnit)
         {
             uint32 healSpell;
+            uint32 basePoint = 0;
             switch (spell->m_spellInfo->Id)
             {
                 case 19505:
                     healSpell = 19658;
+                    basePoint = 234;
                     break;
                 case 19731:
                     healSpell = 19732;
+                    basePoint = 319;
                     break;
                 case 19734:
                     healSpell = 19733;
+                    basePoint = 438;
                     break;
                 case 19736:
                     healSpell = 19735;
+                    basePoint = 579;
                     break;
                 default:
                     sLog.Out(LOG_SCRIPTS, LOG_LVL_DEBUG, "Spell for Devour Magic %d not handled in Spell::EffectDispel", spell->m_spellInfo->Id);
                     return;
             }
-            spell->m_casterUnit->CastSpell(spell->m_casterUnit, healSpell, true);
+            // Devour Magic - 40% max mana bonus
+            uint32 modPoint = basePoint + rand_dither(spell->m_casterUnit->GetMaxPower(POWER_MANA) * 0.40f);
+            //spell->m_casterUnit->CastSpell(spell->m_casterUnit, healSpell, true);
+            spell->m_casterUnit->CastCustomSpell(spell->m_casterUnit, healSpell, modPoint, {}, {}, true, nullptr);
         }
     }
 };

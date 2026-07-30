@@ -417,6 +417,8 @@ void WorldSession::HandlePetUnlearnOpcode(WorldPackets::Pet::PetUnlearn const& p
     }
 
     uint32 cost = pet->GetResetTalentsCost();
+    if (GetPlayer()->HasAura(34316) || GetPlayer()->HasAura(34317))
+        cost = 0;
 
     if (GetPlayer()->GetMoney() < cost)
     {
@@ -431,7 +433,21 @@ void WorldSession::HandlePetUnlearnOpcode(WorldPackets::Pet::PetUnlearn const& p
         pet->UnlearnSpell(spellId, false);
     }
 
-    pet->SetTP(pet->GetLevel() * (pet->GetLoyaltyLevel() - 1));
+    if (GetPlayer()->HasAura(34316))
+    {
+        pet->SetTP(pet->GetLevel() * pet->GetLoyaltyLevel());
+        CharacterDatabase.PExecute("replace into `hunter_pet_train_points` (`pet_guid`, `owner_guid`, `type`) VALUES (%u, %u, %u)", pet->GetCharmInfo()->GetPetNumber(), GetPlayer()->GetGUIDLow(), 1);
+    }
+    else if (GetPlayer()->HasAura(34317))
+    {
+        pet->SetTP(pet->GetLevel() * (pet->GetLoyaltyLevel() + 1));
+        CharacterDatabase.PExecute("replace into `hunter_pet_train_points` (`pet_guid`, `owner_guid`, `type`) VALUES (%u, %u, %u)", pet->GetCharmInfo()->GetPetNumber(), GetPlayer()->GetGUIDLow(), 2);
+    }
+    else
+    {
+        pet->SetTP(pet->GetLevel() * (pet->GetLoyaltyLevel() - 1));
+        CharacterDatabase.PExecute("replace into `hunter_pet_train_points` (`pet_guid`, `owner_guid`, `type`) VALUES (%u, %u, %u)", pet->GetCharmInfo()->GetPetNumber(), GetPlayer()->GetGUIDLow(), 0);
+    }
 
     for (int i = 0; i < MAX_UNIT_ACTION_BAR_INDEX; ++i)
         if (UnitActionBarEntry const* ab = charmInfo->GetActionBarEntry(i))

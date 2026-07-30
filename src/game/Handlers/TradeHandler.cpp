@@ -34,6 +34,8 @@
 #include "TradeData.h"
 #include "TransactionLog.h"
 
+#include <regex>
+
 void WorldSession::SendTradeStatus(TradeStatus status)
 {
     auto tradePacket = std::make_unique<WorldPackets::Trade::TradeStatus>();
@@ -592,6 +594,13 @@ void WorldSession::HandleInitiateTradeOpcode(WorldPackets::Trade::InitiateTrade 
         SendTradeStatus(TRADE_STATUS_TARGET_TO_FAR);
         return;
     }
+    // Hardcore Challenger Can Not Trade Other
+    if (sWorld.getConfig(CONFIG_HARDCORECHALLENGER_BAN_TRADE) == 1 && GetPlayer()->GetLevel()<60 && GetPlayer()->GetQuestStatus(10000) == QUEST_STATUS_COMPLETE)
+    {
+        GetPlayer()->GetSession()->SendNotification("Hardcore Challenger Can Not Trade.");
+        SendTradeStatus(TRADE_STATUS_BUSY);
+        return;
+    }
 
     Player* pOther = GetPlayer()->GetMap()->GetPlayer(packet.tradeTargetGuid);
 
@@ -600,6 +609,29 @@ void WorldSession::HandleInitiateTradeOpcode(WorldPackets::Trade::InitiateTrade 
         SendTradeStatus(TRADE_STATUS_NO_TARGET);
         return;
     }
+
+    // Other Can Not Trade Hardcore Challenger
+    if (sWorld.getConfig(CONFIG_HARDCORECHALLENGER_BAN_TRADE) == 1 && pOther->GetLevel()<60 && pOther->GetQuestStatus(10000) == QUEST_STATUS_COMPLETE)
+    {
+        GetPlayer()->GetSession()->SendNotification("Can Not Trade With Hardcore Challenger.");
+        SendTradeStatus(TRADE_STATUS_BUSY);
+        return;
+    }
+
+    // Can Not Trade Partybot(.load character)
+    // Just Send Email(out of dungeon) Or Master Looter(in dungeon)
+    /*
+    if (pOther->IsBot())
+    {
+        std::unique_ptr<QueryResult> result(CharacterDatabase.PQuery("SELECT 1 FROM `characters` WHERE `guid` = '%u' and `name` = '%s'", otherGuid, pOther->GetName()));
+        if (result)
+        {
+            GetPlayer()->GetSession()->SendNotification("Just Send Mail (out of dungeon) Or Master Looter (in dungeon).");
+            SendTradeStatus(TRADE_STATUS_BUSY);
+            return;
+        }
+    }
+    */
 
     if (pOther == GetPlayer() || pOther->m_trade)
     {
@@ -716,6 +748,34 @@ void WorldSession::HandleSetTradeItemOpcode(WorldPackets::Trade::SetTradeItem co
     if (my_trade->HasItem(item->GetObjectGuid()))
     {
         // cheating attempt
+        SendTradeStatus(TRADE_STATUS_TRADE_CANCELED);
+        return;
+    }
+
+    // Modification - trading in loot for two hours.
+    if (item->GetLootingTime() && item->GetLootingTime() + sWorld.getConfig(CONFIG_UINT32_TRADINGRAIDLOOT_TIME) >= time(nullptr))
+    {
+        std::string raid_group = item->GetRaidGroup();
+        if (raid_group.size())
+        {
+            std::stringstream pattern;
+            pattern << ":" << my_trade->GetTrader()->GetGUIDLow() << ":";
+
+            std::regex rx(pattern.str().c_str());
+            if (!std::regex_search(raid_group, rx))
+            {
+                SendTradeStatus(TRADE_STATUS_TRADE_CANCELED);
+                return;
+            }
+        }
+        else
+        {
+            SendTradeStatus(TRADE_STATUS_TRADE_CANCELED);
+            return;
+        }
+    }
+    if (item->GetLootingTime() && item->GetLootingTime() + sWorld.getConfig(CONFIG_UINT32_TRADINGRAIDLOOT_TIME) < time(nullptr))
+    {
         SendTradeStatus(TRADE_STATUS_TRADE_CANCELED);
         return;
     }

@@ -53,7 +53,7 @@ public:
         else
             return false;
     }
-    void AppendTaximaskTo(ByteBuffer& data, bool all);
+    void AppendTaximaskTo(ByteBuffer& data, bool all, uint32 race);
     TaxiMask const& GetTaxiMask() const { return m_taximask; }
 
     // Destinations

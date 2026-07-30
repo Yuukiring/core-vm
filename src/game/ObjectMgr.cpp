@@ -8596,10 +8596,22 @@ static std::string GeneratePlayerName()
 std::string ObjectMgr::GenerateFreePlayerName()
 {
     std::string name;
-    do
+    bool CallGeneratePlayerName = false;
+    for (uint32 i = 0; i < 5; ++i)
     {
-        name = GeneratePlayerName();
-    } while (sObjectMgr.GetPlayerGuidByName(name));
+        name = GeneratePetName(2000);
+        if (!sObjectMgr.GetPlayerGuidByName(name))
+            break;
+        if (i == 4)
+            CallGeneratePlayerName = true;
+    }
+    if (CallGeneratePlayerName)
+    {
+        do
+        {
+            name = GeneratePlayerName();
+        } while (sObjectMgr.GetPlayerGuidByName(name));
+    }
     return name;
 }
 
@@ -9355,6 +9367,11 @@ void ObjectMgr::LoadTaxiNodes()
 
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "");
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, ">> Loaded %u taxi nodes.", maxTaxiNodeEntry);
+}
+
+TaxiNodesEntry const* ObjectMgr::FindTaxiNodesEntry(uint32 nodeId)
+{
+	return m_TaxiNodes[nodeId].get();
 }
 
 void ObjectMgr::LoadTaxiPathTransitions()

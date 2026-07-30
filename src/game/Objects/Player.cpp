@@ -712,7 +712,7 @@ void Player::SatisfyItemRequirements(ItemPrototype const* pItem)
 
 uint32 Player::EnvironmentalDamage(EnvironmentalDamageType type, uint32 damage)
 {
-    if (!IsAlive() || IsGameMaster())
+    if (!IsAlive() || IsGameMaster() || (IsBot() && sWorld.getConfig(CONFIG_BOT_ENVIRONMENTAL_DAMAGE) == 0))
         return 0;
 
     // Absorb, resist some environmental damage type
@@ -1033,7 +1033,7 @@ void Player::OnMirrorTimerExpirationPulse(MirrorTimer::Type timer)
             EnvironmentalDamage(DAMAGE_DROWNING, ((GetMaxHealth() / 5) + urand(0, (GetLevel() - 1))));
             break;
         case MirrorTimer::ENVIRONMENTAL:
-            if (IsInMagma())
+            if (IsInMagma() && GetMapId() != 557 && GetMapId() != 558 && GetMapId() != 559)
                 EnvironmentalDamage(DAMAGE_LAVA, urand(sWorld.getConfig(CONFIG_UINT32_ENVIRONMENTAL_DAMAGE_MIN), sWorld.getConfig(CONFIG_UINT32_ENVIRONMENTAL_DAMAGE_MAX)));
             break;
         case MirrorTimer::FEIGNDEATH:
@@ -1154,6 +1154,13 @@ void Player::Update(uint32 update_diff, uint32 p_time)
     // Update items that have just a limited lifetime
     if (now > m_lastTick)
         UpdateItemDuration(uint32(now - m_lastTick));
+    /*
+    {
+        UpdateItemDuration(uint32(now - m_lastTick));
+        // Modification - trading in loot for two hours.
+        UpdateItemsInBags(uint32(now - m_lastTick));
+    }
+    */
 
     if (m_cameraUpdateTimer)
     {
@@ -1580,8 +1587,45 @@ void Player::AutoReSummonPet()
     uint32 spell = m_petSpell;
     m_petSpell = m_petEntry = 0;
 
-    if (!IsPlayer() || !entry || !spell)
+    if (!IsPlayer() || (IsBot() && (!entry || !spell)))
         return;
+
+    if (!entry || !spell)
+    {
+        switch (GetClass())
+        {
+            case CLASS_WARRIOR:
+                entry = 200015;
+                spell = 34114;
+                break;
+            case CLASS_PALADIN:
+                entry = 200013;
+                spell = 34095;
+                break;
+            case CLASS_ROGUE:
+                entry = 200014;
+                spell = 34102;
+                break;
+            case CLASS_PRIEST:
+                entry = 200010;
+                spell = 34066;
+                break;
+            case CLASS_SHAMAN:
+                entry = 200012;
+                spell = 34084;
+                break;
+            case CLASS_MAGE:
+                entry = 200009;
+                spell = 34059;
+                break;
+            case CLASS_DRUID:
+                entry = 200011;
+                spell = 34077;
+                break;
+            default:
+                return;
+        }
+    }
 
     Player* me = ToPlayer();
     SpellEntry const* spellEntry = sSpellMgr.GetSpellEntry(spell);
@@ -2251,12 +2295,42 @@ void Player::RewardRage(uint32 damage, bool attacker)
     }
     else
     {
+        //JieFuFuTi(34001) taken damage
+        if (HasAura(34001))
+        {
+            uint32 jiefufuti = sWorld.getConfig(CONFIG_UINT32_BUFF_JIEFUFUTI_COMMON);
+            if (MapEntry const* mapEntry = GetMap()->GetMapEntry())
+            {
+                switch (mapEntry->mapType)
+                {
+                    case MAP_INSTANCE:
+                        jiefufuti = sWorld.getConfig(CONFIG_UINT32_BUFF_JIEFUFUTI_INSTANCE);
+                        break;
+                    case MAP_RAID:
+                        jiefufuti = sWorld.getConfig(CONFIG_UINT32_BUFF_JIEFUFUTI_RAID);
+                        break;
+                    case MAP_BATTLEGROUND:
+                        jiefufuti = sWorld.getConfig(CONFIG_UINT32_BUFF_JIEFUFUTI_BATTLEGROUND);
+                        break;
+                    default:
+                        break;
+                }
+            }
+            if (jiefufuti > 99)
+                jiefufuti = 99;
+            if (GetLevel() < 60 && GetQuestStatus(10000) == QUEST_STATUS_COMPLETE)
+                jiefufuti = 0;
+            if (damage > 1)
+                damage *= rand_ditheru((100.0f / (100.0f - jiefufuti)));
+        }
         addRage = damage / rageConversion * 2.5f;
 
         // Berserker Rage effect
         if (HasAura(18499, EFFECT_INDEX_0))
             addRage *= 1.3f;
     }
+    // 34142 34143 effect
+    addRage *= (HasAura_34142_34143_total() * 0.01f + 1.0f);
 
     addRage *= sWorld.getConfig(CONFIG_FLOAT_RATE_POWER_RAGE_INCOME);
 
@@ -2338,6 +2412,8 @@ void Player::Regenerate(Powers power)
             }
             else
                 addValue = m_modManaRegen * ManaIncreaseRate * 2.00f;
+            // 34155 34156 effect
+            addValue *= (HasAura_34155_34156_total() * 0.01f + 1.0f);
         }
         break;
         case POWER_RAGE:                                    // Regenerate rage
@@ -2350,6 +2426,13 @@ void Player::Regenerate(Powers power)
         {
             float EnergyRate = sWorld.getConfig(CONFIG_FLOAT_RATE_POWER_ENERGY);
             addValue = 20 * EnergyRate;
+            // 34140 34141 effect
+            addValue *= (HasAura_34140_34141_total() * 0.01f + 1.0f);
+            // 14983 Vigor
+            if (HasAura(14983))
+            {
+                addValue *= 1.1f; // 10% bonus
+            }
             break;
         }
         case POWER_FOCUS:
@@ -4133,6 +4216,8 @@ uint32 Player::GetResetTalentsCost() const
 
 bool Player::ResetTalents(bool noCost)
 {
+    if(HasItemCount(26001, 1))
+        noCost = true;
     // not need after this call
     SetCharacterFlag(CHARACTER_FLAG_RESET_TALENTS_ON_LOGIN, false);
 
@@ -4152,6 +4237,39 @@ bool Player::ResetTalents(bool noCost)
         {
             SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, 0, 0, 0);
             return false;
+        }
+    }
+
+    // due to talent : 20142 - Improved Devotion Aura - rank 5
+    if (HasAura(20142))
+    {
+        if (HasAura(465))
+        {
+            RemoveAurasDueToSpell(465);
+        }
+        else if (HasAura(10290))
+        {
+            RemoveAurasDueToSpell(10290);
+        }
+        else if (HasAura(643))
+        {
+            RemoveAurasDueToSpell(643);
+        }
+        else if (HasAura(10291))
+        {
+            RemoveAurasDueToSpell(10291);
+        }
+        else if (HasAura(1032))
+        {
+            RemoveAurasDueToSpell(1032);
+        }
+        else if (HasAura(10292))
+        {
+            RemoveAurasDueToSpell(10292);
+        }
+        else if (HasAura(10293))
+        {
+            RemoveAurasDueToSpell(10293);
         }
     }
 
@@ -4699,6 +4817,13 @@ void Player::ResurrectPlayer(float restore_percent, bool applySickness)
     // Interrupt resurrect spells
     InterruptSpellsCastedOnMe(false, true);
 
+    // Hardcore Challenger Can Not Resurrect
+    if (GetLevel()<60 && GetQuestStatus(10000) == QUEST_STATUS_COMPLETE)
+    {
+        GetSession()->SendNotification("Hardcore Challenger Can Not Resurrect.");
+        return;
+    }
+
     SetDeathState(ALIVE);
 
     RemoveGhostForm();
@@ -4757,6 +4882,81 @@ void Player::ResurrectPlayer(float restore_percent, bool applySickness)
 
 void Player::KillPlayer()
 {
+    // Hardcore Challenger Death Announce
+    if (GetLevel()<60 && GetQuestStatus(10000) == QUEST_STATUS_COMPLETE)
+    {
+        std::string str = "The fallen leaves tell a story. \nLevel ";
+        str.append(std::to_string(GetLevel()));
+        std::string raceName = "";
+        switch (GetRace())
+        {
+          case 1:
+            raceName = "Human";
+            break;
+          case 2:
+            raceName = "Orc";
+            break;
+          case 3:
+            raceName = "Dwarf";
+            break;
+          case 4:
+            raceName = "Night Elf";
+            break;
+          case 5:
+            raceName = "Undead";
+            break;
+          case 6:
+            raceName = "Tauren";
+            break;
+          case 7:
+            raceName = "Gnome";
+            break;
+          case 8:
+            raceName = "Troll";
+            break;
+        }
+        str.append(" "+raceName+"");
+        std::string className = "";
+        switch (GetClass())
+        {
+          case 1:
+            className = "Warrior";
+            break;
+          case 2:
+            className = "Paladin";
+            break;
+          case 3:
+            className = "Hunter";
+            break;
+          case 4:
+            className = "Rogue";
+            break;
+          case 5:
+            className = "Priest";
+            break;
+          case 7:
+            className = "Shaman";
+            break;
+          case 8:
+            className = "Mage";
+            break;
+          case 9:
+            className = "Warlock";
+            break;
+          case 11:
+            className = "Druid";
+            break;
+        }
+        str.append(" "+className+", Hardcore Challenger ");
+        str.append(GetName());
+        str.append(" died at ");
+        const auto *areaEntry = AreaEntry::GetById(GetAreaId());
+        std::string areaName = areaEntry->Name;
+        sObjectMgr.GetAreaLocaleString(areaEntry->Id, m_session->GetSessionDbLocaleIndex(), &areaName);
+        str.append(areaName+". \nR.I.P.");
+        sWorld.SendServerMessage(SERVER_MSG_CUSTOM, str.c_str());
+    }
+
     SetDeathState(CORPSE);
     //SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_IN_PVP);
 
@@ -4922,7 +5122,8 @@ void Player::DurabilityPointsLossAll(int32 points, bool inventory)
 
 void Player::DurabilityPointsLoss(Item* item, int32 points)
 {
-    if (!sWorld.getConfig(CONFIG_BOOL_DURABILITY_LOSS_ENABLE))
+    //bot do not loss durabilitypoints
+    if ((IsBot() && sWorld.getConfig(CONFIG_BOT_DURABILITY_POINTS_LOSS) == 0) || !sWorld.getConfig(CONFIG_BOOL_DURABILITY_LOSS_ENABLE))
         return;
 
     int32 pMaxDurability = item->GetUInt32Value(ITEM_FIELD_MAXDURABILITY);
@@ -6214,7 +6415,10 @@ void Player::CheckAreaExploreAndOutdoor()
         }
     }
     else if (sWorld.getConfig(CONFIG_BOOL_VMAP_INDOOR_CHECK) && !IsGameMaster())
-        RemoveAurasWithAttribute(SPELL_ATTR_ONLY_OUTDOORS);
+    {
+        if (GetMapId() != 550 || !IsMounted())
+            RemoveAurasWithAttribute(SPELL_ATTR_ONLY_OUTDOORS);
+    }
 
     if (areaFlag == 0xffff)
         return;
@@ -6699,7 +6903,8 @@ void Player::UpdateZone(uint32 newZone, uint32 newArea)
             break;
     }
 
-    if (pvpInfo.inPvPEnforcedArea && !IsTaxiFlying()) // in hostile area
+    // Hardcore Challenger Do Not Update PvP
+    if (pvpInfo.inPvPEnforcedArea && !IsTaxiFlying() && !(GetAreaId() != 2177 && GetAreaId() != 3217 && !InBattleGround() && GetLevel() < 60 && GetQuestStatus(10000) == QUEST_STATUS_COMPLETE)) // in hostile area
         UpdatePvP(true);
 
     // on a ffa realm, ffa is toggled together with pvp flag
@@ -8397,11 +8602,33 @@ uint8 Player::FindEquipSlot(ItemPrototype const* proto, uint32 slot, bool swap) 
             }
         }
 
-        // if not found free and can swap return first appropriate from used
-        for (uint8 slot : slots)
+        if (proto->InventoryType == INVTYPE_FINGER || proto->InventoryType == INVTYPE_TRINKET)
         {
-            if (slot != NULL_SLOT && swap)
-                return slot;
+            if (GetItemByPos(INVENTORY_SLOT_BAG_0, slots[0]) && GetItemByPos(INVENTORY_SLOT_BAG_0, slots[1]) && swap)
+            {
+                uint32 IQ0 = GetItemByPos(INVENTORY_SLOT_BAG_0, slots[0])->GetProto()->Quality;
+                uint32 IQ1 = GetItemByPos(INVENTORY_SLOT_BAG_0, slots[1])->GetProto()->Quality;
+                if (IQ0 < IQ1)
+                    return slots[0];
+                else if (IQ0 > IQ1)
+                    return slots[1];
+                else if (IQ0 == IQ1)
+                {
+                    if (GetItemByPos(INVENTORY_SLOT_BAG_0, slots[0])->GetProto()->ItemLevel <= GetItemByPos(INVENTORY_SLOT_BAG_0, slots[1])->GetProto()->ItemLevel)
+                        return slots[0];
+                    else
+                        return slots[1];
+                }
+            }
+        }
+        else
+        {
+            // if not found free and can swap return first appropriate from used
+            for (uint8 slot : slots)
+            {
+                if (slot != NULL_SLOT && swap)
+                    return slot;
+            }
         }
     }
 
@@ -10253,6 +10480,40 @@ Item* Player::StoreNewItem(ItemPosCountVec const& dest, uint32 item, bool update
     Item* pItem = Item::CreateItem(item, count, GetObjectGuid());
     if (pItem)
     {
+        // Modification - trading in loot for two hours.
+        //if (GetMap()->IsRaid() && (pItem->GetProto()->Bonding == BIND_WHEN_PICKED_UP || pItem->GetProto()->Bonding == BIND_QUEST_ITEM))
+        if (GetMap()->IsRaid() && pItem->GetProto()->Bonding == BIND_WHEN_PICKED_UP && (pItem->GetProto()->Class == ITEM_CLASS_WEAPON || pItem->GetProto()->Class == ITEM_CLASS_ARMOR))
+        {
+            if (uint32(sMapPersistentStateMgr.GetScheduler().GetResetTimeFor(GetMap()->GetId()) - time(nullptr)) > sWorld.getConfig(CONFIG_UINT32_TRADINGRAIDLOOT_TIME))
+            {
+                pItem->SetLootingTime(time(nullptr));
+                pItem->SetDurationRaidLooting(sWorld.getConfig(CONFIG_UINT32_TRADINGRAIDLOOT_TIME));
+
+                std::ostringstream ss;
+                if (Group* pGroup = GetGroup())
+                {
+                    ss << ":";
+                    for (GroupReference* itr = pGroup->GetFirstMember(); itr != nullptr; itr = itr->next())
+                    {
+                        if (Player* pMember = itr->getSource())
+                        {
+                            bool isPartybotLoad = false;
+                            if (pMember->IsBot())
+                            {
+                                std::unique_ptr<QueryResult> result(CharacterDatabase.PQuery("SELECT 1 FROM `characters` WHERE `guid` = '%u' and `name` = '%s'", pMember->GetObjectGuid(), pMember->GetName()));
+                                if (result)
+                                    isPartybotLoad = true;
+                            }
+                            if ((pMember->IsBot() && !isPartybotLoad) || !pMember->GetMap()->IsRaid() || pMember->GetMap()->GetInstanceId() != GetMap()->GetInstanceId())
+                                continue;
+                            ss << pMember->GetGUIDLow() << ":";
+                        }
+                    }
+                }
+                pItem->SetRaidGroup(ss.str().c_str());
+            }
+        }
+
         ItemAddedQuestCheck(item, count);
         if (randomPropertyId)
             pItem->SetItemRandomProperties(randomPropertyId);
@@ -10310,9 +10571,10 @@ Item* Player::_StoreItem(uint16 pos, Item* pItem, uint32 count, bool clone, bool
         if (!pItem)
             return nullptr;
 
-        if (pItem->GetProto()->Bonding == BIND_WHEN_PICKED_UP ||
-                pItem->GetProto()->Bonding == BIND_QUEST_ITEM ||
-                (pItem->GetProto()->Bonding == BIND_WHEN_EQUIPPED && IsBagPos(pos)))
+        // Modification - trading in loot for two hours.
+        if (pItem->GetLootingTime() && pItem->GetLootingTime() + sWorld.getConfig(CONFIG_UINT32_TRADINGRAIDLOOT_TIME) >= time(nullptr))
+            pItem->SetBinding(false);
+        else if (pItem->GetProto()->Bonding == BIND_WHEN_PICKED_UP || pItem->GetProto()->Bonding == BIND_QUEST_ITEM || (pItem->GetProto()->Bonding == BIND_WHEN_EQUIPPED && IsBagPos(pos)))
             pItem->SetBinding(true);
 
         if (bag == INVENTORY_SLOT_BAG_0)
@@ -10355,9 +10617,10 @@ Item* Player::_StoreItem(uint16 pos, Item* pItem, uint32 count, bool clone, bool
     }
     else
     {
-        if (pItem2->GetProto()->Bonding == BIND_WHEN_PICKED_UP ||
-                pItem2->GetProto()->Bonding == BIND_QUEST_ITEM ||
-                (pItem2->GetProto()->Bonding == BIND_WHEN_EQUIPPED && IsBagPos(pos)))
+        // Modification - trading in loot for two hours.
+        if (pItem2->GetLootingTime() && pItem2->GetLootingTime() + sWorld.getConfig(CONFIG_UINT32_TRADINGRAIDLOOT_TIME) >= time(nullptr))
+            pItem2->SetBinding(false);
+        else if (pItem->GetProto()->Bonding == BIND_WHEN_PICKED_UP || pItem->GetProto()->Bonding == BIND_QUEST_ITEM || (pItem->GetProto()->Bonding == BIND_WHEN_EQUIPPED && IsBagPos(pos)))
             pItem2->SetBinding(true);
 
         pItem2->SetCount(pItem2->GetCount() + count);
@@ -10492,6 +10755,15 @@ Item* Player::EquipItem(uint16 pos, Item* pItem, bool update)
         return pItem2;
     }
 
+    // Modification - trading in loot for two hours.
+    if (pItem->GetLootingTime())
+    {
+        pItem->SetDurationRaidLooting(0);
+        pItem->SetLootingTime(0);
+        pItem->SetRaidGroup("");
+        pItem->SetBinding(true);
+    }
+
     return pItem;
 }
 
@@ -10520,7 +10792,17 @@ void Player::SetVisibleItemSlot(uint8 slot, Item const* pItem)
         SetGuidValue(PLAYER_VISIBLE_ITEM_1_CREATOR + (slot * MAX_VISIBLE_ITEM_OFFSET), pItem->GetGuidValue(ITEM_FIELD_CREATOR));
 
         int VisibleBase = PLAYER_VISIBLE_ITEM_1_0 + (slot * MAX_VISIBLE_ITEM_OFFSET);
-        SetUInt32Value(VisibleBase + 0, pItem->GetEntry());
+        //Transmogrification
+        uint64 item_guid = pItem->GetGUIDLow();
+        uint64 character_guid = pItem->GetOwnerGuid();
+        std::unique_ptr<QueryResult> result = CharacterDatabase.PQuery("SELECT `entry` FROM `character_transmog` WHERE `guid` = '%u' and `character` = '%u'", item_guid, character_guid);
+        if(result){
+            Field* fields = result->Fetch();
+            uint64 item_entry = fields[0].GetUInt64();
+            SetUInt32Value(VisibleBase + 0, item_entry);
+        }else{
+            SetUInt32Value(VisibleBase + 0, pItem->GetEntry());
+        }
 
         for (int i = 0; i < MAX_INSPECTED_ENCHANTMENT_SLOT; ++i)
             SetUInt32Value(VisibleBase + 1 + i, pItem->GetEnchantmentId(EnchantmentSlot(i)));
@@ -10544,13 +10826,35 @@ void Player::SetVisibleItemSlot(uint8 slot, Item const* pItem)
     }
 }
 
+float Player::GetItemLevel() const
+{
+    float itemLevel = 0.0f;
+    // Equipment
+    for (int i = EQUIPMENT_SLOT_START; i < EQUIPMENT_SLOT_END; ++i)
+    {
+        if (i == EQUIPMENT_SLOT_BODY || i == EQUIPMENT_SLOT_OFFHAND || i == EQUIPMENT_SLOT_TABARD)
+            continue;
+        if (Item* pItem = GetItemByPos(INVENTORY_SLOT_BAG_0, i))
+            itemLevel += pItem->GetProto()->ItemLevel;
+    }
+    return itemLevel / 16.0f;
+}
+
+void Player::ReplaceCharacterTransmog(uint64 guid, uint64 entry, uint64 character)
+{
+    CharacterDatabase.PExecute("REPLACE INTO `character_transmog` (`guid`, `entry`, `character`) VALUES (%u, %u, %u)", guid, entry, character);
+}
+
 void Player::VisualizeItem(uint8 slot, Item* pItem)
 {
     if (!pItem)
         return;
 
     // check also  BIND_WHEN_PICKED_UP and BIND_QUEST_ITEM for .additem or .additemset case by GM (not binded at adding to inventory)
-    if (pItem->GetProto()->Bonding == BIND_WHEN_EQUIPPED || pItem->GetProto()->Bonding == BIND_WHEN_PICKED_UP || pItem->GetProto()->Bonding == BIND_QUEST_ITEM)
+    // Modification - trading in loot for two hours.
+    if (pItem->GetLootingTime() && pItem->GetLootingTime() + sWorld.getConfig(CONFIG_UINT32_TRADINGRAIDLOOT_TIME) >= time(nullptr))
+        pItem->SetBinding(false);
+    else if (pItem->GetProto()->Bonding == BIND_WHEN_EQUIPPED || pItem->GetProto()->Bonding == BIND_WHEN_PICKED_UP || pItem->GetProto()->Bonding == BIND_QUEST_ITEM)
         pItem->SetBinding(true);
 
     sLog.Out(LOG_BASIC, LOG_LVL_DEBUG, "STORAGE: EquipItem slot = %u, item = %u", slot, pItem->GetEntry());
@@ -11702,6 +12006,29 @@ void Player::UpdateItemDuration(uint32 time, bool realtimeonly)
     }
 }
 
+// Modification - trading in loot for two hours.
+/*
+void Player::UpdateItemsInBags(uint32 diff)
+{
+    for (int i = INVENTORY_SLOT_BAG_START; i < INVENTORY_SLOT_ITEM_END; ++i)
+    {
+        if (Item* pItem = GetItemByPos(INVENTORY_SLOT_BAG_0, i))
+        {
+            if (pItem->GetLootingTime() && pItem->GetLootingTime() + sWorld.getConfig(CONFIG_UINT32_TRADINGRAIDLOOT_TIME) < time(nullptr))
+            {
+                pItem->SetBinding(true);
+                pItem->SetLootingTime(0);
+                pItem->SetRaidGroup("");
+            }
+            else
+            {
+                pItem->UpdateDurationRaidLooting(diff);
+            }
+        }
+    }
+}
+*/
+
 void Player::UpdateEnchantTime(uint32 time)
 {
     for (EnchantDurationList::iterator itr = m_enchantDuration.begin(), next; itr != m_enchantDuration.end(); itr = next)
@@ -12664,7 +12991,7 @@ bool Player::CanTakeQuest(Quest const* pQuest, bool msg, bool skipStatusCheck /*
 
     return (skipStatusCheck || SatisfyQuestStatus(pQuest, msg)) && SatisfyQuestExclusiveGroup(pQuest, msg) &&
            SatisfyQuestClass(pQuest, msg) && SatisfyQuestRace(pQuest, msg) && SatisfyQuestLevel(pQuest, msg) &&
-           SatisfyQuestSkill(pQuest, msg) && SatisfyQuestCondition(pQuest, msg) && SatisfyQuestReputation(pQuest, msg) &&
+           SatisfyQuestDaily(pQuest, msg) && SatisfyQuestSkill(pQuest, msg) && SatisfyQuestCondition(pQuest, msg) && SatisfyQuestReputation(pQuest, msg) &&
            SatisfyQuestPreviousQuest(pQuest, msg) && SatisfyQuestTimed(pQuest, msg) &&
            SatisfyQuestNextChain(pQuest, msg) && SatisfyQuestPrevChain(pQuest, msg) &&
            SatisfyQuestBreadcrumbQuest(pQuest, msg) && SatisfyQuestDependentBreadcrumbQuests(pQuest, msg) &&
@@ -13341,6 +13668,10 @@ void Player::RewardQuest(Quest const* pQuest, uint32 reward, WorldObject* questE
                 if (!HasAura(itr->second->spellId, EFFECT_INDEX_0))
                     CastSpell(this, itr->second->spellId, true);
     }
+
+    // daily quest recall Player::SaveToDB() at quest reward
+    if (questId == 10004 || questId == 10005 || questId == 10006)
+        SaveToDB();
 }
 
 void Player::FailQuest(uint32 questId)
@@ -13375,6 +13706,48 @@ void Player::FailQuest(uint32 questId)
         else
             SendQuestFailed(questId);
     }
+}
+
+uint32 getTodayStartTimestamp()
+{
+    time_t rawtime = time(NULL);
+    struct tm *timeinfo = localtime(&rawtime);
+    timeinfo->tm_hour = 0;
+    timeinfo->tm_min = 0;
+    timeinfo->tm_sec = 0;
+    return mktime(timeinfo);
+}
+
+bool Player::SatisfyQuestDaily(Quest const* qInfo, bool msg) const
+{
+    uint32 questId = qInfo->GetQuestId();
+    if (!(questId == 10004 || questId == 10005 || questId == 10006))
+        return true;
+
+    uint32 todayStart = getTodayStartTimestamp();
+    uint32 todayEnd = todayStart + 86399;
+    std::unique_ptr<QueryResult> result = CharacterDatabase.PQuery("SELECT `quest` FROM `character_queststatus` WHERE `guid`='%u' and `quest`='%u' and `timer`>='%u' and `timer`<='%u' and `status`=0 and `rewarded`=1 and `mob_count1`=1 and `mob_count2`=1 and `mob_count3`=1", GetGUIDLow(), questId, todayStart, todayEnd);
+    if (result)
+    {
+        uint32 id = result->Fetch()[0].GetUInt32();
+        switch (id)
+        {
+            case 10004:
+                GetSession()->SendNotification("Hello, Blackrock Mountain! can only be completed once a day.");
+                break;
+            case 10005:
+                GetSession()->SendNotification("Hello, Plaguelands! can only be completed once a day.");
+                break;
+            case 10006:
+                GetSession()->SendNotification("Hello, Dire Maul! can only be completed once a day.");
+                break;
+        }
+        if (msg)
+            SendCanTakeQuestResponse(INVALIDREASON_DONT_HAVE_REQ);
+        return false;
+    }
+
+    return true;
 }
 
 bool Player::SatisfyQuestSkill(Quest const* qInfo, bool msg) const
@@ -13840,9 +14213,7 @@ bool Player::TakeOrReplaceQuestStartItems(uint32 questId, bool msg, bool giveQue
         {
             if (uint32 questStartingItemID = sObjectMgr.GetQuestStartingItemID(questId))
                 AddItem(questStartingItemID, count);
-
         }
-
     }
 
     return true;
@@ -15068,6 +15439,9 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder)
 
     _LoadSpells(holder->TakeResult(PLAYER_LOGIN_QUERY_LOADSPELLS));
 
+    //Dual Talent Specialization
+    _LoadAlternativeSpec();
+
     // after spell load
     InitTalentForLevel();
     LearnDefaultSpells();
@@ -15236,6 +15610,16 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder)
         }
 
         SetCheatGod(sWorld.getConfig(CONFIG_BOOL_GM_CHEAT_GOD));
+    }
+
+    if (HasAura(34499) && GetClass() == CLASS_MAGE)
+        SetCheatFly(true, false);
+
+    if (HasAura(34524))
+    {
+        SetObjectScale(0.5f);
+        UpdateModelData();
+        SetCheatFly(true, false);
     }
 
     if (extraflags & PLAYER_EXTRA_WHISP_RESTRICTION)
@@ -15478,9 +15862,10 @@ void Player::LoadAura(AuraSaveStruct& s, uint32 timediff)
     if (spellproto->procCharges == 0)
         s.charges = 0;
 
+    // Ming Zun Liu Li Ti
     if (!spellproto->StackAmount)
         s.stacks = 1;
-    else if (spellproto->StackAmount < s.stacks)
+    else if (spellproto->StackAmount < s.stacks && !(spellproto->Id == 34031 || spellproto->Id == 34032))
         s.stacks = spellproto->StackAmount;
     else if (!s.stacks)
         s.stacks = 1;
@@ -15533,8 +15918,8 @@ void Player::LoadCorpse()
 
 bool Player::_LoadInventory(std::unique_ptr<QueryResult> result, uint32 timediff, bool& hasEpicMount)
 {
-    //       0             1                  2      3         4        5      6             7                   8           9     10   11    12         13              14
-    //SELECT creator_guid, gift_creator_guid, count, duration, charges, flags, enchantments, random_property_id, durability, text, bag, slot, item_guid, item_id, generated_loot
+    //       0             1                  2      3         4        5      6             7                   8           9     10   11    12         13              14       15            16
+    //SELECT creator_guid, gift_creator_guid, count, duration, charges, flags, enchantments, random_property_id, durability, text, bag, slot, item_guid, item_id, generated_loot, looting_date, raid_group
 
     if (result)
     {
@@ -15558,6 +15943,8 @@ bool Player::_LoadInventory(std::unique_ptr<QueryResult> result, uint32 timediff
             uint8  slot         = fields[11].GetUInt8();
             uint32 item_lowguid = fields[12].GetUInt32();
             uint32 item_id      = fields[13].GetUInt32();
+            uint64 looting_time = fields[15].GetUInt64(); // Modification - trading in loot for two hours.
+            std::string raid_group = fields[16].GetCppString(); // Modification - trading in loot for two hours.
 
             ItemPrototype const* proto = sObjectMgr.GetItemPrototype(item_id);
 
@@ -15714,6 +16101,21 @@ bool Player::_LoadInventory(std::unique_ptr<QueryResult> result, uint32 timediff
                 // restore container unchanged state also
                 if (item->GetContainer())
                     item->GetContainer()->SetState(ITEM_UNCHANGED, this);
+
+                // Modification - trading in loot for two hours.
+                if (looting_time && looting_time + sWorld.getConfig(CONFIG_UINT32_TRADINGRAIDLOOT_TIME) >= time(nullptr) && (item->GetState() == ITEM_NEW || item->GetState() == ITEM_UNCHANGED))
+                {
+                    item->SetDurationRaidLooting(time(nullptr) - looting_time);
+                    item->SetBinding(false);
+                    item->SetRaidGroup(raid_group);
+                    item->SetLootingTime(looting_time);
+                }
+                if (looting_time && looting_time + sWorld.getConfig(CONFIG_UINT32_TRADINGRAIDLOOT_TIME) < time(nullptr))
+                {
+                    item->SetRaidGroup("");
+                    item->SetLootingTime(0);
+                    item->SetBinding(true);
+                }
             }
             else
             {
@@ -16849,26 +17251,37 @@ void Player::_SaveInventory()
         Bag* container = item->GetContainer();
         uint32 bagGuid = container ? container->GetGUIDLow() : 0;
 
+        // Modification - trading in loot for two hours.
+        if (item->GetLootingTime() && item->GetLootingTime() + sWorld.getConfig(CONFIG_UINT32_TRADINGRAIDLOOT_TIME) < time(nullptr))
+        {
+            item->SetLootingTime(0);
+            item->SetRaidGroup("");
+        }
+
         switch (item->GetState())
         {
             case ITEM_NEW:
             {
-                SqlStatement stmt = CharacterDatabase.CreateStatement(insertInventory, "INSERT INTO `character_inventory` (`guid`, `bag`, `slot`, `item_guid`, `item_id`) VALUES (?, ?, ?, ?, ?)");
+                SqlStatement stmt = CharacterDatabase.CreateStatement(insertInventory, "INSERT INTO `character_inventory` (`guid`, `bag`, `slot`, `item_guid`, `item_id`, `looting_date`, `raid_group`) VALUES (?, ?, ?, ?, ?, ?, ?)");
                 stmt.addUInt32(GetGUIDLow());
                 stmt.addUInt32(bagGuid);
                 stmt.addUInt8(item->GetSlot());
                 stmt.addUInt32(item->GetGUIDLow());
                 stmt.addUInt32(item->GetEntry());
+                stmt.addUInt64(item->GetLootingTime()); // Modification - trading in loot for two hours.
+                stmt.addString(item->GetRaidGroup()); // Modification - trading in loot for two hours.
                 stmt.Execute();
                 break;
             }
             case ITEM_CHANGED:
             {
-                SqlStatement stmt = CharacterDatabase.CreateStatement(updateInventory, "UPDATE `character_inventory` SET `guid` = ?, `bag` = ?, `slot` = ?, `item_id` = ? WHERE `item_guid` = ?");
+                SqlStatement stmt = CharacterDatabase.CreateStatement(updateInventory, "UPDATE `character_inventory` SET `guid` = ?, `bag` = ?, `slot` = ?, `item_id` = ?, `looting_date` = ?, `raid_group` = ? WHERE `item_guid` = ?");
                 stmt.addUInt32(GetGUIDLow());
                 stmt.addUInt32(bagGuid);
                 stmt.addUInt8(item->GetSlot());
                 stmt.addUInt32(item->GetEntry());
+                stmt.addUInt64(item->GetLootingTime()); // Modification - trading in loot for two hours.
+                stmt.addString(item->GetRaidGroup()); // Modification - trading in loot for two hours.
                 stmt.addUInt32(item->GetGUIDLow());
                 stmt.Execute();
                 break;
@@ -17298,7 +17711,7 @@ void Player::AddInstanceEnterTime(uint32 instanceId, time_t enterTime) const
 void Player::UpdatePvPFlagTimer(uint32 diff)
 {
     // Freeze flag timer while participating in PvP combat, in pvp enforced zone, in capture points, when carrying flag or on player preference
-    if (!pvpInfo.inPvPCombat && !pvpInfo.inPvPEnforcedArea && !pvpInfo.inPvPCapturePoint && !pvpInfo.isPvPFlagCarrier && !IsPvPDesired())
+    if (!pvpInfo.inPvPCombat && !pvpInfo.inPvPCapturePoint && !pvpInfo.isPvPFlagCarrier && !IsPvPDesired() && (!pvpInfo.inPvPEnforcedArea || (GetAreaId() != 2177 && GetAreaId() != 3217 && !InBattleGround() && GetLevel() < 60 && GetQuestStatus(10000) == QUEST_STATUS_COMPLETE)))
         pvpInfo.timerPvPRemaining -= std::min(pvpInfo.timerPvPRemaining, diff);
 
     // Timer tries to drop flag if all conditions are met and time has passed
@@ -18179,16 +18592,27 @@ bool Player::ActivateTaxiPathTo(std::vector<uint32> const& nodes, Creature const
     // reset extraAttacks counter
     ResetExtraAttacks();
 
-    if (GetPet())
-        RemovePet(PET_SAVE_REAGENTS);
+    // instant flight do not remove pet
+    if (HasItemCount(26000, 1))
+    {
+        TaxiNodesEntry const* lastnode = sObjectMgr.FindTaxiNodesEntry(nodes[nodes.size() - 1]);
+		m_taxi.ClearTaxiDestinations();
+		TeleportTo(lastnode->map_id, lastnode->x, lastnode->y, lastnode->z, GetOrientation());
+		return false;
+    }
+    else
+    {
+        if (GetPet())
+            RemovePet(PET_SAVE_REAGENTS);
 
-    auto packet = std::make_unique<WorldPackets::Taxi::ActivateTaxiReply>();
-    packet->replyCode = ERR_TAXIOK;
-    GetSession()->SendPacket(std::move(packet));
+        auto packet = std::make_unique<WorldPackets::Taxi::ActivateTaxiReply>();
+        packet->replyCode = ERR_TAXIOK;
+        GetSession()->SendPacket(std::move(packet));
 
-    GetSession()->SendDoFlight(mount_display_id, sourcePath);
+        GetSession()->SendDoFlight(mount_display_id, sourcePath);
 
-    return true;
+        return true;
+    }
 }
 
 bool Player::ActivateTaxiPathTo(uint32 taxi_path_id, uint32 spellid /*= 0*/, bool nocheck)
@@ -20021,10 +20445,16 @@ uint32 Player::SelectResurrectionSpellId() const
             prio = 3;
         }
         // Twisting Nether                                  // prio: 2 (max)
-        else if (dummyAura->GetId() == SPELL_TWISTING_NETHER_PASSIVE && roll_chance_i(10))
+        else if (prio != 2 && dummyAura->GetId() == SPELL_TWISTING_NETHER_PASSIVE && roll_chance_i(10))
         {
             prio = 2;
             spellId = SPELL_TWISTING_NETHER_EFFECT;
+        }
+        // Aegis of the Immortal                            // prio: 2 (max)
+        else if (dummyAura->GetId() == 34175 && IsSpellReady(sSpellMgr.GetSpellEntry(34176)))
+        {
+            prio = 2;
+            spellId = 34176;
         }
     }
 
@@ -20059,7 +20489,9 @@ void Player::RewardSinglePlayerAtKill(Unit const* pVictim)
 {
     bool PvP = pVictim->IsCharmerOrOwnerPlayerOrPlayerItself();
     uint32 xp = PvP ? 0 : MaNGOS::XP::Gain(this, static_cast<Creature const*>(pVictim));
-
+    //Double Experience
+    if(HasItemCount(26002, 1) || HasItemCount(26048, 1))
+        xp *= 2;
     // honor can be in PvP and !PvP (racial leader) cases
     RewardHonor(pVictim, 1);
 
@@ -20073,7 +20505,13 @@ void Player::RewardSinglePlayerAtKill(Unit const* pVictim)
         if (xp)
         {
             if (Pet* pet = GetPet())
-                pet->GivePetXP(MaNGOS::XP::Gain(pet, static_cast<Creature const*>(pVictim)));
+            {
+                //Double Experience
+                uint32 xp_pet = MaNGOS::XP::Gain(pet, static_cast<Creature const*>(pVictim));
+                if(HasItemCount(26002, 1) || HasItemCount(26048, 1))
+                    xp_pet *= 2;
+                pet->GivePetXP(xp_pet);
+            }   
         }
 
         // normal creature (not pet/etc) can be only in !PvP case
@@ -22846,4 +23284,122 @@ void Player::ClearTemporaryWarWithFactions()
         }
         m_temporaryAtWarFactions.clear();
     }
+}
+
+//Dual Talent Specialization
+void Player::_LoadAlternativeSpec() {
+
+	m_altspec_talents.clear();
+	std::unique_ptr<QueryResult> result = CharacterDatabase.PQuery("SELECT spells FROM character_swap_spec WHERE guid = '%u'",GetGUIDLow());
+
+	if (result)
+	{
+		Field *fields = result->Fetch();
+		std::string spells = fields[0].GetString();
+		std::istringstream ss(spells);
+		std::string spell;
+
+		while(std::getline(ss, spell, ' ')) {
+			m_altspec_talents.push_back(atoi(spell.c_str()));
+		}
+	}
+
+};
+
+void Player::_SaveAlternativeSpec()
+{
+    uint32 ts = uint32(time(NULL));
+	//At first, save spells.
+	std::ostringstream ss;
+	ss << "REPLACE INTO character_swap_spec (guid, spells, timestamp) VALUES ('" << GetGUIDLow() << "', '";
+	//Okay, now serialize it into string of ids, separated by whitespace
+	for (SpellIDList::iterator it = m_altspec_talents.begin(); it != m_altspec_talents.end(); it++)
+		ss << *it << " ";
+	ss << "', '" << std::to_string(ts) << "')";
+
+	//Nice, it saved!
+	CharacterDatabase.PExecute(ss.str().c_str());
+	
+}
+
+uint32 Player::SwapSpec()
+{
+	//Level check
+	if (GetLevel() <= 10)
+		return 2;
+
+	//Time check
+    uint32 ts = uint32(time(NULL)) - 7200;
+    std::unique_ptr<QueryResult> result = CharacterDatabase.PQuery("SELECT timestamp FROM character_swap_spec WHERE guid = '%u'",GetGUIDLow());
+	if (result)
+	{
+		Field *fields = result->Fetch();
+		std::string str_ts = fields[0].GetString();
+        ts = uint32(atoi(str_ts.c_str()));
+	}
+
+	if (uint32(time(NULL) - ts) < sWorld.getConfig(CONFIG_SWAP_SPEC_INTERVAL))
+        return 3;
+
+	/*********************************************************/
+	/***                   SAVE TALENTS                    ***/
+	/*********************************************************/
+	//copy current talents list
+	SpellIDList tmp = m_altspec_talents;
+
+	//erase it for populating using current talents
+	m_altspec_talents.clear();
+
+	//Find all talents, general idea from Player::resetTalents
+	for (unsigned int i = 0; i < sTalentStore.GetNumRows(); ++i) {
+		TalentEntry const *talentInfo = sTalentStore.LookupEntry(i);
+		if (!talentInfo) continue;
+		TalentTabEntry const *talentTabInfo = sTalentTabStore.LookupEntry(talentInfo->TalentTab);
+		if (!talentTabInfo) continue;
+		if ((GetClassMask() & talentTabInfo->ClassMask) == 0) continue;
+		for (int j = 0; j < 5; ++j) {
+			for (PlayerSpellMap::iterator itr = GetSpellMap().begin(); itr != GetSpellMap().end();) {
+
+				//skip disabled talents like Pyroblast or some else
+				if (itr->second.state == PLAYERSPELL_REMOVED || itr->second.disabled)
+				{
+					++itr;
+					continue;
+				}
+
+				//for spells, which can be updated via trainers(like Pyroblast), we can'n just compare, cuz
+				// >1 ranks are not in talens store. So, first rank it is. We can just get lowerest rank of skill
+				// and search it in the talents storage.
+				uint32 itrFirstId = sSpellMgr.GetFirstSpellInChain(itr->first);
+
+				//now - just compare. Also, it make sense to add "|| spellmgr.IsSpellLearnToSpell(talentInfo->RankID[j],itrFirstId)"
+				//but i have no idea what it is, it uses in the Player::resetTalents function and it may be needed.
+				//Also, there is a some spells like Prayer of Spirit, which not in talents tree, but its depends on talents.
+				//So, we need just to get required spell by current spell and find is it in player spellbook.
+				if (itrFirstId == talentInfo->RankID[j]
+					|| sSpellMgr.IsSpellLearnToSpell(talentInfo->RankID[j], itrFirstId)
+					)//|| HasSpell(spellmgr.GetSpellRequired(itrFirstId)))
+					m_altspec_talents.push_back(itr->first);
+				++itr;
+			}
+		}
+	}
+
+	/*********************************************************/
+	/***                   LOAD TALENTS                    ***/
+	/*********************************************************/
+	ResetTalents(true);
+	for (SpellIDList::iterator it = tmp.begin(); it != tmp.end(); it++)
+	{
+		LearnSpell(*it, false, true);
+	}
+	InitTalentForLevel();
+	//learnSkillRewardedSpells();
+
+	//Drop mana and health to minimum for preventing of profit from swappings
+	SetHealth(12);
+	SetPower(POWER_MANA, 12);
+	_SaveAlternativeSpec();
+    //Okay
+	return 1;
 }

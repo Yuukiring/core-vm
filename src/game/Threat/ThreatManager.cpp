@@ -407,6 +407,97 @@ void ThreatManager::addThreat(Unit* pVictim, float threat, bool crit, SpellSchoo
     if (!pVictim->IsAlive() || !getOwner()->IsAlive())
         return;
 
+    // mod spell no threat
+    if (pThreatSpell && (pThreatSpell->Id == 34002 ||
+                         pThreatSpell->Id == 34011 ||
+                         pThreatSpell->Id == 34012 ||
+                         pThreatSpell->Id == 34013 ||
+                         pThreatSpell->Id == 34014 ||
+                         pThreatSpell->Id == 34015 ||
+                         pThreatSpell->Id == 34017 ||
+                         pThreatSpell->Id == 34020 ||
+                         pThreatSpell->Id == 34021 ||
+                         pThreatSpell->Id == 34022 ||
+                         pThreatSpell->Id == 34023 ||
+                         pThreatSpell->Id == 34024 ||
+                         pThreatSpell->Id == 34025 ||
+                         pThreatSpell->Id == 34026 ||
+                         pThreatSpell->Id == 34028 ||
+                         pThreatSpell->Id == 34037 ||
+                         pThreatSpell->Id == 34038 ||
+                         pThreatSpell->Id == 34039 ||
+                         pThreatSpell->Id == 34040 ||
+                         pThreatSpell->Id == 34041 ||
+                         pThreatSpell->Id == 34042 ||
+                         pThreatSpell->Id == 34048 ||
+                         pThreatSpell->Id == 34049 ||
+                         pThreatSpell->Id == 34060 ||
+                         pThreatSpell->Id == 34061 ||
+                         pThreatSpell->Id == 34062 ||
+                         pThreatSpell->Id == 34064 ||
+                         pThreatSpell->Id == 34068 ||
+                         pThreatSpell->Id == 34069 ||
+                         pThreatSpell->Id == 34090 ||
+                         pThreatSpell->Id == 34091 ||
+                         pThreatSpell->Id == 34099 ||
+                         pThreatSpell->Id == 34105 ||
+                         pThreatSpell->Id == 34107 ||
+                         pThreatSpell->Id == 34111 ||
+                         pThreatSpell->Id == 34112 ||
+                         pThreatSpell->Id == 34116 ||
+                         pThreatSpell->Id == 34117 ||
+                         pThreatSpell->Id == 34123 ||
+                         pThreatSpell->Id == 34125 ||
+                         pThreatSpell->Id == 34150 ||
+                         pThreatSpell->Id == 34171 ||
+                         pThreatSpell->Id == 34176 ||
+                         pThreatSpell->Id == 34194 ||
+                         pThreatSpell->Id == 34198 ||
+                         pThreatSpell->Id == 34200 ||
+                         pThreatSpell->Id == 34207 ||
+                         pThreatSpell->Id == 34299 ||
+                         pThreatSpell->Id == 34304 ||
+                         pThreatSpell->Id == 34305 ||
+                         pThreatSpell->Id == 34306 ||
+                         pThreatSpell->Id == 34307 ||
+                         pThreatSpell->Id == 34308 ||
+                         pThreatSpell->Id == 34309 ||
+                         pThreatSpell->Id == 34312 ||
+                         pThreatSpell->Id == 34328 ||
+                         pThreatSpell->Id == 34342 ||
+                         pThreatSpell->Id == 34352 ||
+                         pThreatSpell->Id == 17809 ||
+                         pThreatSpell->Id == 17933 ||
+                         pThreatSpell->Id == 17934 ||
+                         pThreatSpell->Id == 17935 ||
+                         pThreatSpell->Id == 27860 ||
+                         pThreatSpell->Id == 34475 ||
+                         pThreatSpell->Id == 34480 ||
+                         pThreatSpell->Id == 34509 ||
+                         pThreatSpell->Id == 34514 ||
+                         pThreatSpell->Id == 34522 ||
+                         pThreatSpell->Id == 34530 ||
+                         pThreatSpell->Id == 34543 ||
+                         pThreatSpell->Id == 34570 ||
+                         pThreatSpell->Id == 34571))
+        return;
+
+    // Master Demonologist rank 5
+    // IMP - Firebolt no threat if owner has aura 34533
+    // VOIDWALKER - Heartstopper Aura causes threat
+    if (pThreatSpell && (pThreatSpell->Id == 3110 || pThreatSpell->Id == 7799 || pThreatSpell->Id == 7800 || pThreatSpell->Id == 7801 || pThreatSpell->Id == 7802 || pThreatSpell->Id == 11762 || pThreatSpell->Id == 11763))
+    {
+        if (pVictim->HasAura(23829))
+            if (Player* pOwner = ::ToPlayer(pVictim->GetOwner()))
+                if (pOwner->HasAura(34533))
+                    return;
+    }
+    else if (pThreatSpell && pThreatSpell->Id == 34528)
+    {
+        if (!pVictim->HasAura(23844))
+            return;
+    }
+
     MANGOS_ASSERT(getOwner()->GetTypeId() == TYPEID_UNIT);
 
     // don't add assist threat to targets under hard CC
@@ -418,6 +509,139 @@ void ThreatManager::addThreat(Unit* pVictim, float threat, bool crit, SpellSchoo
         {
             threat = 0.0f;
         }
+    }
+
+    // Voidwalker - Torment : add 12.5% max health threat
+    if (pThreatSpell && (pThreatSpell->Id == 3716 ||
+                         pThreatSpell->Id == 7809 ||
+                         pThreatSpell->Id == 7810 ||
+                         pThreatSpell->Id == 7811 ||
+                         pThreatSpell->Id == 11774 ||
+                         pThreatSpell->Id == 11775))
+    {
+        if (Player* pOwner = ::ToPlayer(pVictim->GetOwner()))
+        {
+            if (pOwner->HasAura(18705))
+            {
+                threat += pVictim->GetMaxHealth()*0.125*1.10;
+            }
+            else if (pOwner->HasAura(18706))
+            {
+                threat += pVictim->GetMaxHealth()*0.125*1.20;
+            }
+            else if (pOwner->HasAura(18707))
+            {
+                threat += pVictim->GetMaxHealth()*0.125*1.30;
+            }
+            else
+            {
+                threat += pVictim->GetMaxHealth()*0.125;
+            }
+        }
+    }
+    // Voidwalker - Suffering : add 25% max health threat
+    else if (pThreatSpell && (pThreatSpell->Id == 17735 ||
+                              pThreatSpell->Id == 17750 ||
+                              pThreatSpell->Id == 17751 ||
+                              pThreatSpell->Id == 17752))
+    {
+        if (Player* pOwner = ::ToPlayer(pVictim->GetOwner()))
+        {
+            if (pOwner->HasAura(18705))
+            {
+                threat += pVictim->GetMaxHealth()*0.25*1.10;
+            }
+            else if (pOwner->HasAura(18706))
+            {
+                threat += pVictim->GetMaxHealth()*0.25*1.20;
+            }
+            else if (pOwner->HasAura(18707))
+            {
+                threat += pVictim->GetMaxHealth()*0.25*1.30;
+            }
+            else
+            {
+                threat += pVictim->GetMaxHealth()*0.25;
+            }
+        }
+    }
+    // Succubus - Soothing Kiss : subtract 15% max mana threat
+    else if (pThreatSpell && (pThreatSpell->Id == 6360 ||
+                              pThreatSpell->Id == 7813 ||
+                              pThreatSpell->Id == 11784 ||
+                              pThreatSpell->Id == 11785))
+    {
+        if (Player* pOwner = ::ToPlayer(pVictim->GetOwner()))
+        {
+            if (pOwner->HasAura(18754))
+            {
+                threat -= pVictim->GetMaxPower(POWER_MANA)*0.15*1.10;
+            }
+            else if (pOwner->HasAura(18755))
+            {
+                threat -= pVictim->GetMaxPower(POWER_MANA)*0.15*1.20;
+            }
+            else if (pOwner->HasAura(18756))
+            {
+                threat -= pVictim->GetMaxPower(POWER_MANA)*0.15*1.30;
+            }
+            else
+            {
+                threat -= pVictim->GetMaxPower(POWER_MANA)*0.15;
+            }
+        }
+    }
+    // Felhunter - Tainted Blood : add 7.5% max mana threat
+    else if (pThreatSpell && (pThreatSpell->Id == 19479 ||
+                              pThreatSpell->Id == 19652 ||
+                              pThreatSpell->Id == 19653 ||
+                              pThreatSpell->Id == 19654))
+    {
+        threat += pVictim->GetMaxPower(POWER_MANA)*0.075;
+    }
+    // Hunter's Pet - Growl : add 10% max health threat
+    else if (pThreatSpell && (pThreatSpell->Id == 2649 ||
+                              pThreatSpell->Id == 14916 ||
+                              pThreatSpell->Id == 14917 ||
+                              pThreatSpell->Id == 14918 ||
+                              pThreatSpell->Id == 14919 ||
+                              pThreatSpell->Id == 14920 ||
+                              pThreatSpell->Id == 14921))
+    {
+        threat += pVictim->GetMaxHealth()*0.1;
+    }
+    // Druid - Cower :
+    // rank1 : 8998
+    // rank2 : 9000
+    // rank3 : 9892
+    // Rogue - Feint
+    // rank1 : 1966
+    // rank2 : 6768
+    // rank3 : 8637
+    // rank4 : 11303
+    // rank5 : 25302
+    // subtract 50% melee attackpower
+    else if (pThreatSpell && (pThreatSpell->Id == 8998 ||
+                              pThreatSpell->Id == 9000 ||
+                              pThreatSpell->Id == 9892 ||
+                              pThreatSpell->Id == 1966 ||
+                              pThreatSpell->Id == 6768 ||
+                              pThreatSpell->Id == 8637 ||
+                              pThreatSpell->Id == 11303 ||
+                              pThreatSpell->Id == 25302))
+    {
+        threat -= pVictim->GetTotalAttackPowerValue(BASE_ATTACK)*0.5;
+    }
+    // Hunter - Disengage :
+    // rank1 : 781
+    // rank2 : 14272
+    // rank3 : 14273
+    // subtract 50% range attackpower
+    else if (pThreatSpell && (pThreatSpell->Id == 781 ||
+                              pThreatSpell->Id == 14272 ||
+                              pThreatSpell->Id == 14273))
+    {
+        threat -= pVictim->GetTotalAttackPowerValue(RANGED_ATTACK)*0.5;
     }
 
     float totalThreat = ThreatCalcHelper::CalcThreat(pVictim, threat, crit, schoolMask, pThreatSpell);

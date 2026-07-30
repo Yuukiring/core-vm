@@ -28,6 +28,14 @@ enum CombatBotSpells
     SPELL_MOONKIN_FORM = 24858,
     SPELL_LEADER_OF_THE_PACK = 17007,
 
+    SPELL_SUMMON_WATER_ELEMENTAL = 34065,
+    SPELL_SUMMON_ROGUE_KNIGHT = 34066,
+    SPELL_SUMMON_SPIRIT_BEAR = 34077,
+    SPELL_SUMMON_OBSIDIAN_DESTROYER = 34084,
+    SPELL_SUMMON_GOBLIN_SHREDDER = 34095,
+    SPELL_SUMMON_BONE_CLINCKZ = 34374,
+    SPELL_SUMMON_BANE = 34375,
+
     SPELL_SUMMON_IMP = 688,
     SPELL_SUMMON_VOIDWALKER = 697,
     SPELL_SUMMON_FELHUNTER = 691,
@@ -36,9 +44,9 @@ enum CombatBotSpells
     SPELL_REVIVE_PET = 982,
     SPELL_CALL_PET = 883,
 
-    PET_WOLF    = 565,
-    PET_CAT     = 681,
-    PET_BEAR    = 822,
+    PET_WOLF    = 521,
+    PET_CAT     = 2850,
+    PET_BEAR    = 1130,
     PET_CRAB    = 831,
     PET_GORILLA = 1108,
     PET_BIRD    = 1109,
@@ -47,8 +55,8 @@ enum CombatBotSpells
     PET_CROC    = 1693,
     PET_SPIDER  = 1781,
     PET_OWL     = 1997,
-    PET_STRIDER = 2322,
-    PET_SCORPID = 3127,
+    PET_STRIDER = 3068,
+    PET_SCORPID = 5823,
     PET_SERPENT = 3247,
     PET_RAPTOR  = 3254,
     PET_TURTLE  = 3461,
@@ -243,6 +251,18 @@ void CombatBotBaseAI::PopulateSpellData()
                     if (IsHigherRankSpell(pSealOfRighteousness))
                         pSealOfRighteousness = pSpellEntry;
                 }
+                else if (pSpellEntry->SpellName[0].find("Qu Zhu") != std::string::npos)
+                {
+                    if (!m_spells.paladin.pQuZhu ||
+                        m_spells.paladin.pQuZhu->Id < pSpellEntry->Id)
+                        m_spells.paladin.pQuZhu = pSpellEntry;
+                }
+                else if (pSpellEntry->SpellName[0].find("Shi Zi Jun Da Ji") != std::string::npos)
+                {
+                    if (!m_spells.paladin.pShiZiJunDaJi ||
+                        m_spells.paladin.pShiZiJunDaJi->Id < pSpellEntry->Id)
+                        m_spells.paladin.pShiZiJunDaJi = pSpellEntry;
+                }
                 else if (pSpellEntry->SpellName[0].find("Seal of Command") != std::string::npos)
                 {
                     if (IsHigherRankSpell(pSealOfCommand))
@@ -302,6 +322,8 @@ void CombatBotBaseAI::PopulateSpellData()
                 {
                     if (IsHigherRankSpell(pDevotionAura))
                         pDevotionAura = pSpellEntry;
+                    if (IsHigherRankSpell(m_spells.paladin.pImprovedDevotionAura))
+                        m_spells.paladin.pImprovedDevotionAura = pSpellEntry;
                 }
                 else if (pSpellEntry->SpellName[0].find("Retribution Aura") != std::string::npos)
                 {
@@ -398,6 +420,11 @@ void CombatBotBaseAI::PopulateSpellData()
                     if (IsHigherRankSpell(m_spells.paladin.pHolyShield))
                         m_spells.paladin.pHolyShield = pSpellEntry;
                 }
+                else if (pSpellEntry->SpellName[0].find("Repentance") != std::string::npos)
+                {
+                    if (IsHigherRankSpell(m_spells.paladin.pRepentance))
+                        m_spells.paladin.pRepentance = pSpellEntry;
+                }
                 break;
             }
             case CLASS_SHAMAN:
@@ -466,6 +493,12 @@ void CombatBotBaseAI::PopulateSpellData()
                 {
                     if (IsHigherRankSpell(pWindfuryWeapon))
                         pWindfuryWeapon = pSpellEntry;
+                }
+                else if (pSpellEntry->SpellName[0].find("Totemic Recall") != std::string::npos)
+                {
+                    if (!m_spells.shaman.pTotemicRecall ||
+                        m_spells.shaman.pTotemicRecall->Id < pSpellEntry->Id)
+                        m_spells.shaman.pTotemicRecall = pSpellEntry;
                 }
                 else if (pSpellEntry->SpellName[0].find("Grace of Air Totem") != std::string::npos)
                 {
@@ -656,6 +689,31 @@ void CombatBotBaseAI::PopulateSpellData()
                     if (IsHigherRankSpell(m_spells.hunter.pVolley))
                         m_spells.hunter.pVolley = pSpellEntry;
                 }
+                else if (pSpellEntry->SpellName[0].find("Trueshot Aura") != std::string::npos)
+                {
+                    if (IsHigherRankSpell(m_spells.hunter.pTrueshotAura))
+                        m_spells.hunter.pTrueshotAura = pSpellEntry;
+                }
+                else if (pSpellEntry->SpellName[0].find("Deterrence") != std::string::npos)
+                {
+                    if (IsHigherRankSpell(m_spells.hunter.pDeterrence))
+                        m_spells.hunter.pDeterrence = pSpellEntry;
+                }
+                else if (pSpellEntry->SpellName[0].find("Scatter Shot") != std::string::npos)
+                {
+                    if (IsHigherRankSpell(m_spells.hunter.pScatterShot))
+                        m_spells.hunter.pScatterShot = pSpellEntry;
+                }
+                else if (pSpellEntry->SpellName[0].find("Tranquilizing Shot") != std::string::npos)
+                {
+                    if (IsHigherRankSpell(m_spells.hunter.pTranquilizingShot))
+                        m_spells.hunter.pTranquilizingShot = pSpellEntry;
+                }
+                else if (pSpellEntry->SpellName[0].find("Viper Sting") != std::string::npos)
+                {
+                    if (IsHigherRankSpell(m_spells.hunter.pViperSting))
+                        m_spells.hunter.pViperSting = pSpellEntry;
+                }
                 break;
             }
             case CLASS_MAGE:
@@ -669,6 +727,18 @@ void CombatBotBaseAI::PopulateSpellData()
                 {
                     if (IsHigherRankSpell(pFrostArmor))
                         pFrostArmor = pSpellEntry;
+                }
+                else if (pSpellEntry->SpellName[0].find("A Tuo Si Zhi Gun") != std::string::npos)
+                {
+                    if (!m_spells.mage.pATuoSiZhiGun ||
+                        m_spells.mage.pATuoSiZhiGun->Id < pSpellEntry->Id)
+                        m_spells.mage.pATuoSiZhiGun = pSpellEntry;
+                }
+                else if (pSpellEntry->SpellName[0].find("Blink Dagger") != std::string::npos)
+                {
+                    if (!m_spells.mage.pBlinkDagger ||
+                        m_spells.mage.pBlinkDagger->Id < pSpellEntry->Id)
+                        m_spells.mage.pBlinkDagger = pSpellEntry;
                 }
                 else if (pSpellEntry->SpellName[0].find("Ice Barrier") != std::string::npos)
                 {
@@ -800,6 +870,11 @@ void CombatBotBaseAI::PopulateSpellData()
                     if (IsHigherRankSpell(m_spells.mage.pCombustion))
                         m_spells.mage.pCombustion = pSpellEntry;
                 }
+                else if (pSpellEntry->SpellName[0].find("Detect Magic") != std::string::npos)
+                {
+                    if (IsHigherRankSpell(m_spells.mage.pDetectMagic))
+                        m_spells.mage.pDetectMagic = pSpellEntry;
+                }
                 break;
             }
             case CLASS_PRIEST:
@@ -808,6 +883,12 @@ void CombatBotBaseAI::PopulateSpellData()
                 {
                     if (IsHigherRankSpell(m_spells.priest.pPowerWordFortitude))
                         m_spells.priest.pPowerWordFortitude = pSpellEntry;
+                }
+                else if (pSpellEntry->SpellName[0].find("Xu Ling Zhi Ren") != std::string::npos)
+                {
+                    if (!m_spells.priest.pXuLingZhiRen ||
+                        m_spells.priest.pXuLingZhiRen->Id < pSpellEntry->Id)
+                        m_spells.priest.pXuLingZhiRen = pSpellEntry;
                 }
                 else if (pSpellEntry->SpellName[0].find("Divine Spirit") != std::string::npos)
                 {
@@ -937,6 +1018,12 @@ void CombatBotBaseAI::PopulateSpellData()
                 {
                     if (IsHigherRankSpell(m_spells.warlock.pDemonArmor))
                         m_spells.warlock.pDemonArmor = pSpellEntry;
+                }
+                else if (pSpellEntry->SpellName[0].find("E Mo Fu Ti") != std::string::npos)
+                {
+                    if (!m_spells.warlock.pEMoFuTi ||
+                        m_spells.warlock.pEMoFuTi->Id < pSpellEntry->Id)
+                        m_spells.warlock.pEMoFuTi = pSpellEntry;
                 }
                 else if (pSpellEntry->SpellName[0].find("Death Coil") != std::string::npos)
                 {
@@ -1351,6 +1438,11 @@ void CombatBotBaseAI::PopulateSpellData()
                     if (IsHigherRankSpell(m_spells.rogue.pSprint))
                         m_spells.rogue.pSprint = pSpellEntry;
                 }
+                else if (pSpellEntry->SpellName[0].find("Smoke Bomb") != std::string::npos)
+                {
+                    if (IsHigherRankSpell(m_spells.rogue.pSmokeBomb))
+                        m_spells.rogue.pSmokeBomb = pSpellEntry;
+                }
                 else if (pSpellEntry->SpellName[0].find("Deadly Poison") != std::string::npos)
                 {
                     hasDeadlyPoison = true;
@@ -1489,6 +1581,11 @@ void CombatBotBaseAI::PopulateSpellData()
                 {
                     if (IsHigherRankSpell(m_spells.druid.pHibernate))
                         m_spells.druid.pHibernate = pSpellEntry;
+                }
+                else if (pSpellEntry->SpellName[0].find("Omen of Clarity") != std::string::npos)
+                {
+                    if (IsHigherRankSpell(m_spells.druid.pOmenOfClarity))
+                        m_spells.druid.pOmenOfClarity = pSpellEntry;
                 }
                 else if (pSpellEntry->SpellName[0].find("Pounce") != std::string::npos)
                 {
@@ -1666,8 +1763,11 @@ void CombatBotBaseAI::PopulateSpellData()
             }
 
             std::vector<SpellEntry const*> auras;
-            if (pDevotionAura)
-                auras.push_back(pDevotionAura);
+            if (!me->HasAura(20142))
+            {
+                if (pDevotionAura)
+                    auras.push_back(pDevotionAura);
+            }
             if (pConcentrationAura)
                 auras.push_back(pConcentrationAura);
             if (pRetributionAura)
@@ -2172,8 +2272,13 @@ bool CombatBotBaseAI::IsValidDispelTarget(Unit const* pTarget, SpellEntry const*
                                 if (FactionTemplateEntry const* ft2 = me->GetFactionTemplateEntry())
                                     if (charm->GetOriginalFactionTemplate()->IsFriendlyTo(*ft2))
                                         bFoundOneDispell = true;
-                    if (positive == friendly_dispel)
+                    if (positive == friendly_dispel || holder->GetSpellProto()->Id == 24321)
                         continue;
+                    if (Player const* pPlayerTarget = pTarget->ToPlayer())
+                    {
+                        if (!pPlayerTarget->IsBot() && holder->GetSpellProto()->Id == 16468)
+                            continue;
+                    }
                 }
                 bFoundOneDispell = true;
                 break;
@@ -2330,9 +2435,34 @@ Player* CombatBotBaseAI::SelectDispelTarget(SpellEntry const* pSpellEntry) const
     return nullptr;
 }
 
+Unit* CombatBotBaseAI::SelectDispelTargetPet(SpellEntry const* pSpellEntry) const
+{
+    Group* pGroup = me->GetGroup();
+    if (pGroup)
+    {
+        for (GroupReference* itr = pGroup->GetFirstMember(); itr != nullptr; itr = itr->next())
+        {
+            if (Player* pMember = itr->getSource())
+            {
+                if (Pet* pPet = pMember->GetPet())
+                {
+                    if (me->IsValidHelpfulTarget(pPet) &&
+                       !pMember->IsGameMaster() &&
+                        IsValidDispelTarget(pPet, pSpellEntry) &&
+                        me->IsWithinLOSInMap(pPet) &&
+                        me->IsWithinDist(pPet, 30.0f))
+                        return pPet;
+                }
+            }
+        }
+    }
+
+    return nullptr;
+}
+
 void CombatBotBaseAI::SummonPetIfNeeded()
 {
-    if (me->GetClass() == CLASS_HUNTER)
+    if (me->GetClass() == CLASS_HUNTER && sWorld.getConfig(CONFIG_HUNTER_BOT_SUMMON_PET) == 1)
     {
         if (me->GetCharmGuid())
             return;
@@ -2364,7 +2494,7 @@ void CombatBotBaseAI::SummonPetIfNeeded()
             me->CastSpell(pCreature, SPELL_TAME_BEAST, true);
         }
     }
-    else if (me->GetClass() == CLASS_WARLOCK)
+    else if (me->GetClass() == CLASS_WARLOCK && sWorld.getConfig(CONFIG_WARLOCK_BOT_SUMMON_PET) == 1)
     {
         if (me->GetPetGuid() || me->GetCharmGuid())
             return;
@@ -2380,6 +2510,48 @@ void CombatBotBaseAI::SummonPetIfNeeded()
             vSummons.push_back(SPELL_SUMMON_SUCCUBUS);
         if (!vSummons.empty())
             me->CastSpell(me, SelectRandomContainerElement(vSummons), true);
+    }
+    else if (me->GetClass() == CLASS_MAGE && sWorld.getConfig(CONFIG_MAGE_BOT_SUMMON_PET) == 1)
+    {
+        if (me->GetPetGuid() || me->GetCharmGuid())
+            return;
+        me->CastSpell(me, SPELL_SUMMON_WATER_ELEMENTAL, true);
+    }
+    else if (me->GetClass() == CLASS_PRIEST && sWorld.getConfig(CONFIG_PRIEST_BOT_SUMMON_PET) == 1)
+    {
+        if (me->GetPetGuid() || me->GetCharmGuid())
+            return;
+        me->CastSpell(me, SPELL_SUMMON_ROGUE_KNIGHT, true);
+    }
+    else if (me->GetClass() == CLASS_DRUID && sWorld.getConfig(CONFIG_DRUID_BOT_SUMMON_PET) == 1)
+    {
+        if (me->GetPetGuid() || me->GetCharmGuid())
+            return;
+        me->CastSpell(me, SPELL_SUMMON_SPIRIT_BEAR, true);
+    }
+    else if (me->GetClass() == CLASS_SHAMAN && sWorld.getConfig(CONFIG_SHAMAN_BOT_SUMMON_PET) == 1)
+    {
+        if (me->GetPetGuid() || me->GetCharmGuid())
+            return;
+        me->CastSpell(me, SPELL_SUMMON_OBSIDIAN_DESTROYER, true);
+    }
+    else if (me->GetClass() == CLASS_PALADIN && sWorld.getConfig(CONFIG_PALADIN_BOT_SUMMON_PET) == 1)
+    {
+        if (me->GetPetGuid() || me->GetCharmGuid())
+            return;
+        me->CastSpell(me, SPELL_SUMMON_GOBLIN_SHREDDER, true);
+    }
+    else if (me->GetClass() == CLASS_ROGUE && sWorld.getConfig(CONFIG_ROGUE_BOT_SUMMON_PET) == 1)
+    {
+        if (me->GetPetGuid() || me->GetCharmGuid())
+            return;
+        me->CastSpell(me, SPELL_SUMMON_BONE_CLINCKZ, true);
+    }
+    else if (me->GetClass() == CLASS_WARRIOR && sWorld.getConfig(CONFIG_WARRIOR_BOT_SUMMON_PET) == 1)
+    {
+        if (me->GetPetGuid() || me->GetCharmGuid())
+            return;
+        me->CastSpell(me, SPELL_SUMMON_BANE, true);
     }
 }
 
@@ -2431,7 +2603,8 @@ void CombatBotBaseAI::LearnPremadeSpecForClass()
         {
             for (const auto itr : vSpecs)
             {
-                if (itr->role == m_role &&
+                // treat ROLE_MELEE_DPS as ROLE_TANK if CLASS_DRUID
+                if ((itr->role == m_role || (itr->role == ROLE_TANK && m_role == ROLE_MELEE_DPS && me->GetClass() == CLASS_DRUID)) &&
                    (!pSpec || pSpec->level < itr->level))
                 {
                     pSpec = itr;
@@ -2545,7 +2718,8 @@ void CombatBotBaseAI::EquipPremadeGearTemplate()
         {
             for (const auto itr : vGear)
             {
-                if (itr->role == m_role)
+                // treat ROLE_MELEE_DPS as ROLE_TANK if CLASS_DRUID
+                if (itr->role == m_role || (itr->role == ROLE_TANK && m_role == ROLE_MELEE_DPS && me->GetClass() == CLASS_DRUID))
                     vGear2.push_back(itr);
             }
         }
@@ -2618,6 +2792,38 @@ void CombatBotBaseAI::EquipRandomGearInEmptySlots()
 
         // No tabards and shirts
         if (pProto->InventoryType == INVTYPE_TABARD || pProto->InventoryType == INVTYPE_BODY)
+            continue;
+
+        // No Seal of Ascension & Drakefire Amulet & Hook of the Master Angler & Cannonball Runner & Stormpike Insignia & Frostwolf Insignia & Spectral Essence
+        if (pProto->ItemId == 12344 || pProto->ItemId == 16309 || pProto->ItemId == 19979 || pProto->ItemId == 13382 ||
+            pProto->ItemId == 17691 || pProto->ItemId == 17900 || pProto->ItemId == 17901 || pProto->ItemId == 17902 ||
+            pProto->ItemId == 17903 || pProto->ItemId == 17904 || pProto->ItemId == 17690 || pProto->ItemId == 17905 ||
+            pProto->ItemId == 17906 || pProto->ItemId == 17907 || pProto->ItemId == 17908 || pProto->ItemId == 17909 ||
+            pProto->ItemId == 13544 || pProto->ItemId == 26010 || pProto->ItemId == 26020 || pProto->ItemId == 26021 ||
+            pProto->ItemId == 26022 || pProto->ItemId == 26023 || pProto->ItemId == 26024 ||
+            pProto->ItemId == 26027 || pProto->ItemId == 26028 || pProto->ItemId == 26029 ||
+            pProto->ItemId == 26032 || pProto->ItemId == 26034 || pProto->ItemId == 26035 ||
+            pProto->ItemId == 26036 || pProto->ItemId == 26037 || pProto->ItemId == 26038 ||
+            pProto->ItemId == 26044 || pProto->ItemId == 26045 || pProto->ItemId == 26046 ||
+            pProto->ItemId == 26047 || pProto->ItemId == 26049 || pProto->ItemId == 26050 ||
+            pProto->ItemId == 26170 || pProto->ItemId == 26188 || pProto->ItemId == 26206 ||
+            pProto->ItemId == 26171 || pProto->ItemId == 26189 || pProto->ItemId == 26207 ||
+            pProto->ItemId == 26172 || pProto->ItemId == 26190 || pProto->ItemId == 26208 ||
+            pProto->ItemId == 26173 || pProto->ItemId == 26191 || pProto->ItemId == 26209 ||
+            pProto->ItemId == 26174 || pProto->ItemId == 26192 || pProto->ItemId == 26210 ||
+            pProto->ItemId == 26175 || pProto->ItemId == 26193 || pProto->ItemId == 26211 ||
+            pProto->ItemId == 26176 || pProto->ItemId == 26194 || pProto->ItemId == 26212 ||
+            pProto->ItemId == 26177 || pProto->ItemId == 26195 || pProto->ItemId == 26213 ||
+            pProto->ItemId == 26178 || pProto->ItemId == 26196 || pProto->ItemId == 26214 ||
+            pProto->ItemId == 26179 || pProto->ItemId == 26197 || pProto->ItemId == 26215 ||
+            pProto->ItemId == 26180 || pProto->ItemId == 26198 || pProto->ItemId == 26216 ||
+            pProto->ItemId == 26181 || pProto->ItemId == 26199 || pProto->ItemId == 26217 ||
+            pProto->ItemId == 26182 || pProto->ItemId == 26200 || pProto->ItemId == 26218 ||
+            pProto->ItemId == 26183 || pProto->ItemId == 26201 || pProto->ItemId == 26219 ||
+            pProto->ItemId == 26184 || pProto->ItemId == 26202 || pProto->ItemId == 26220 ||
+            pProto->ItemId == 26185 || pProto->ItemId == 26203 || pProto->ItemId == 26221 ||
+            pProto->ItemId == 26186 || pProto->ItemId == 26204 || pProto->ItemId == 26222 ||
+            pProto->ItemId == 26187 || pProto->ItemId == 26205 || pProto->ItemId == 26223)
             continue;
 
         if (pProto->SourceQuestRaces && !(pProto->SourceQuestRaces & me->GetRaceMask()))
@@ -2957,6 +3163,10 @@ void CombatBotBaseAI::AddHunterAmmo()
 
 void CombatBotBaseAI::EquipOrUseNewItem()
 {
+    bool canSwap = true;
+    std::unique_ptr<QueryResult> result(CharacterDatabase.PQuery("SELECT 1 FROM `characters` WHERE `guid` = '%u' and `name` = '%s'", me->GetObjectGuid(), me->GetName()));
+    if (result)
+        canSwap = false;
     for (int i = INVENTORY_SLOT_ITEM_START; i < INVENTORY_SLOT_ITEM_END; ++i)
     {
         Item* pItem = me->GetItemByPos(INVENTORY_SLOT_BAG_0, i);
@@ -2966,6 +3176,9 @@ void CombatBotBaseAI::EquipOrUseNewItem()
             {
                 case ITEM_CLASS_CONSUMABLE:
                 {
+                    // bot can not use Pungent Blood Cocktail & Grey Rat's master key & Ice Cold Milk.
+                    if (pItem->GetProto()->ItemId == 26040 || pItem->GetProto()->ItemId == 26051 || pItem->GetProto()->ItemId == 26169)
+                        break;
                     SpellCastTargets targets;
                     targets.setUnitTarget(me);
                     me->CastItemUseSpell(pItem, targets);
@@ -2974,12 +3187,13 @@ void CombatBotBaseAI::EquipOrUseNewItem()
                 case ITEM_CLASS_WEAPON:
                 case ITEM_CLASS_ARMOR:
                 {
-                    uint32 slot = me->FindEquipSlot(pItem->GetProto(), NULL_SLOT, true);
+                    uint32 slot = me->FindEquipSlot(pItem->GetProto(), NULL_SLOT, canSwap);
                     if (slot != NULL_SLOT)
                     {
                         if (Item* pItem2 = me->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
-                            me->DestroyItem(INVENTORY_SLOT_BAG_0, slot, true);
-
+                            if (pItem->GetProto()->ItemLevel >= pItem2->GetProto()->ItemLevel && pItem->GetProto()->Quality >= pItem2->GetProto()->Quality)
+                                me->DestroyItem(INVENTORY_SLOT_BAG_0, slot, true);
+                            else break;
                         // Learn required proficiency
                         if (uint32 proficiencySpellId = pItem->GetProto()->GetProficiencySpell())
                             if (!me->HasSpell(proficiencySpellId))
@@ -3131,6 +3345,14 @@ void CombatBotBaseAI::BreakCrowdControlEffects()
     {
         case CLASS_PALADIN:
         {
+            // AURA_WARSONG_FLAG
+            if (m_spells.paladin.pQuZhu &&
+                !me->HasAura(23333) &&
+                CanTryToCastSpell(me, m_spells.paladin.pQuZhu))
+            {
+                if (DoCastSpell(me, m_spells.paladin.pQuZhu) == SPELL_CAST_OK)
+                    return;
+            }
             if (m_spells.paladin.pDivineShield &&
                 CanTryToCastSpell(me, m_spells.paladin.pDivineShield))
             {
@@ -3416,11 +3638,83 @@ void CombatBotBaseAI::OnPacketReceived(WorldPacket const* packet)
 
             uint64 guid = *((uint64*)(*packet).contents());
             uint32 slot = *(((uint32*)(*packet).contents()) + 2);
+            uint32 itemid = *(((uint32*)(*packet).contents()) + 3);
 
             auto data = std::make_unique<WorldPackets::Loot::LootRoll>();
             data->lootedTarget = ObjectGuid(guid);
             data->itemSlot = slot;
-            data->rollType = ROLL_PASS;
+            if (sWorld.getConfig(CONFIG_BOT_LOOT_ROLL) == 0)
+            {
+                data->rollType = ROLL_PASS; // pass
+            }
+            else
+            {
+                ItemPrototype const* pProto = sObjectMgr.GetItemPrototype(itemid);
+                if (pProto->Class != ITEM_CLASS_WEAPON && pProto->Class != ITEM_CLASS_ARMOR)
+                {
+                    data->rollType = ROLL_PASS; // pass
+                }
+                else
+                {
+                    // 1. if armor crossover
+                    bool armor_crossover = false;
+                    if (pProto->Class == ITEM_CLASS_ARMOR && (pProto->SubClass == ITEM_SUBCLASS_ARMOR_PLATE || pProto->SubClass == ITEM_SUBCLASS_ARMOR_MAIL || pProto->SubClass == ITEM_SUBCLASS_ARMOR_LEATHER || pProto->SubClass == ITEM_SUBCLASS_ARMOR_CLOTH))
+                    {
+                        uint32 armor_class = 0;
+                        switch (me->GetClass())
+                        {
+                            case CLASS_WARRIOR:
+                            case CLASS_PALADIN:
+                            {
+                                armor_class = 4;
+                                break;
+                            }
+                            case CLASS_HUNTER:
+                            case CLASS_SHAMAN:
+                            {
+                                armor_class = 3;
+                                break;
+                            }
+                            case CLASS_ROGUE:
+                            case CLASS_DRUID:
+                            {
+                                armor_class = 2;
+                                break;
+                            }
+                            case CLASS_MAGE:
+                            case CLASS_WARLOCK:
+                            case CLASS_PRIEST:
+                            {
+                                armor_class = 1;
+                                break;
+                            }
+                        }
+                        if (pProto->SubClass != armor_class && pProto->InventoryType != INVTYPE_CLOAK)
+                            armor_crossover = true;
+                    }
+                    // 2. 20% chance : INVTYPE_NECK / INVTYPE_FINGER / INVTYPE_TRINKET / INVTYPE_CLOAK / INVTYPE_HOLDABLE / INVTYPE_RELIC
+                    bool random_root_roll = false;
+                    if (pProto->Class == ITEM_CLASS_ARMOR && (pProto->InventoryType == INVTYPE_NECK || pProto->InventoryType == INVTYPE_FINGER || pProto->InventoryType == INVTYPE_TRINKET || pProto->InventoryType == INVTYPE_CLOAK || pProto->InventoryType == INVTYPE_HOLDABLE || pProto->InventoryType == INVTYPE_RELIC))
+                    {
+                        uint32 rnd = urand(1, 100);
+                        if (rnd > 20)
+                            random_root_roll = true;
+                    }
+                    // 3. if can store
+                    ItemPosCountVec dest;
+                    InventoryResult msg_1 = me->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, pProto->ItemId, pProto->Stackable);
+                    // 4. if can use
+                    InventoryResult msg_2 = me->CanUseItem(pProto);
+                    if (!armor_crossover && !random_root_roll && msg_1 == EQUIP_ERR_OK && msg_2 == EQUIP_ERR_OK)
+                    {
+                        data->rollType = ROLL_NEED; // need
+                    }
+                    else
+                    {
+                        data->rollType = ROLL_GREED; // greed
+                    }
+                }
+            }
             me->GetSession()->QueuePacket(std::move(data));
             return;
         }

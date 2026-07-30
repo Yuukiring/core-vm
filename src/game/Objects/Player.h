@@ -666,7 +666,7 @@ struct InstancePlayerBind
     InstancePlayerBind() : state(nullptr), perm(false) {}
 };
 
-#define MAX_INSTANCE_PER_ACCOUNT_PER_HOUR 5
+#define MAX_INSTANCE_PER_ACCOUNT_PER_HOUR 10
 
 enum PlayerRestState
 {
@@ -874,6 +874,7 @@ class Player final: public Unit
         void RemoveItemDependentAurasAndCasts(Item const* pItem);
         void UpdateEnchantTime(uint32 time);
         void UpdateItemDuration(uint32 time, bool realtimeonly = false);
+        //void UpdateItemsInBags(uint32 diff);
         void AddEnchantmentDurations(Item* item);
         void RemoveEnchantmentDurations(Item* item);
         void RemoveAllEnchantments(EnchantmentSlot slot);
@@ -885,6 +886,8 @@ class Player final: public Unit
         void SendItemDurations() const;
         uint32 CountFreeInventorySlots() const;
     public:
+        float GetItemLevel() const;
+        void ReplaceCharacterTransmog(uint64 guid, uint64 entry, uint64 character);
         Item* AddItem(uint32 itemId, uint32 count = 1);
         void InterruptSpellsWithCastItem(Item const* item);
         uint8 FindEquipSlot(ItemPrototype const* proto, uint32 slot, bool swap) const;
@@ -1130,6 +1133,7 @@ class Player final: public Unit
         void IncompleteQuest(uint32 questId);
         void RewardQuest(Quest const* pQuest, uint32 reward, WorldObject* questGiver, bool announce = true);
         void FailQuest(uint32 questId);
+        bool SatisfyQuestDaily(Quest const* qInfo, bool msg) const;
         bool SatisfyQuestSkill(Quest const* qInfo, bool msg) const;
         bool SatisfyQuestCondition(Quest const* qInfo, bool msg) const;
         bool SatisfyQuestLevel(Quest const* qInfo, bool msg) const;
@@ -1226,6 +1230,8 @@ class Player final: public Unit
         void _LoadSpells(std::unique_ptr<QueryResult> result);
         bool _LoadHomeBind(std::unique_ptr<QueryResult> result);
         void _LoadBGData(std::unique_ptr<QueryResult> result);
+        //Dual Talent Specialization
+        void _LoadAlternativeSpec();
         void _LoadIntoDataField(char const* data, uint32 startOffset, uint32 count);
         void _LoadGuild(std::unique_ptr<QueryResult> result);
         uint32 m_characterFlags;
@@ -1256,6 +1262,8 @@ class Player final: public Unit
         void _SaveSpells();
         void _SaveBGData();
         void _SaveStats();
+        //Dual Talent Specialization
+        void _SaveAlternativeSpec();
         uint32 m_nextSave;
         bool m_saveDisabled; // used for temporary bots and faction change
     public:
@@ -1301,6 +1309,10 @@ class Player final: public Unit
         void RemoveMiniPet();
         Pet* GetMiniPet() const override;
         void AutoReSummonPet();
+
+        //Dual Talent Specialization
+        typedef std::list<uint32> SpellIDList;
+		SpellIDList m_altspec_talents;
 
         // use only in Pet::Unsummon/Spell::DoSummon
         void _SetMiniPet(Pet const* pet) { m_miniPetGuid = pet ? pet->GetObjectGuid() : ObjectGuid(); }
@@ -1804,6 +1816,9 @@ class Player final: public Unit
 
         uint32 GetHomeBindMap() const { return m_homebind.mapId; }
         uint16 GetHomeBindAreaId() const { return m_homebindAreaId; }
+
+        //Dual Talent Specialization
+        uint32 SwapSpec();
 
         void SendSummonRequest(ObjectGuid summonerGuid, uint32 mapId, uint32 zoneId, float x, float y, float z);
         void SetSummonPoint(uint32 mapid, float x, float y, float z)

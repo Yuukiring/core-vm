@@ -1097,19 +1097,7 @@ struct npc_pats_firework_guyAI : ScriptedAI
             if (Fireworks[m_uiIndex].m_bIsLarge)
             {
                 /* BIG Rockets
-                ╔══════╤═════╤═════╗
-                ║ X    │ Y   │ Z   ║
-                ╠══════╪═════╪═════╣
-                ║ 0    │ 0   │ +3  ║
-                ╟──────┼─────┼─────╢
-                ║ 0    │ +3  │ +7.5║
-                ╟──────┼─────┼─────╢
-                ║ +5.25│ -1.5│ +7.5║
-                ╟──────┼─────┼─────╢
-                ║ -5.25│ -1.5│ +7.5║
-                ╟──────┼─────┼─────╢
-                ║ 0    │ 0   │ +12 ║
-                ╚══════╧═════╧═════╝
+                
                 */
                 for (int i = 0; i < 5; ++i)
                 {
@@ -1137,19 +1125,7 @@ struct npc_pats_firework_guyAI : ScriptedAI
             else
             {
                 /* Normal / Small Rockets
-                ╔══════╤═════╤═════╗
-                ║ X    │ Y   │ Z   ║
-                ╠══════╪═════╪═════╣
-                ║ 0    │ 0   │ +8  ║
-                ╟──────┼─────┼─────╢
-                ║ +3.5 │ -1  │ +5  ║
-                ╟──────┼─────┼─────╢
-                ║ 0    │ +2  │ +5  ║
-                ╟──────┼─────┼─────╢
-                ║ 0    │ 0   │ +2  ║
-                ╟──────┼─────┼─────╢
-                ║ -3.5 │ -1  │ +5  ║
-                ╚══════╧═════╧═════╝
+                
                 */
                 for (int i = 0; i < 5; ++i)
                 {
@@ -1199,7 +1175,7 @@ struct npc_pats_firework_guyAI : ScriptedAI
                     pSummoner->KilledMonster(cInfo, ObjectGuid());
         }
 
-        if (GetClosestGameObjectWithEntry(m_creature, GO_OMEN_CLUSTER_LAUNCHER, INTERACTION_DISTANCE))
+        if (GetClosestGameObjectWithEntry(m_creature, GO_OMEN_CLUSTER_LAUNCHER, 30.0f))
             boss_omenAI::OnFireworkLaunch(m_creature);
 
         m_bDone = true;

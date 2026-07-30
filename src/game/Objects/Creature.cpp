@@ -427,9 +427,13 @@ bool Creature::InitEntry(uint32 entry, GameEventCreatureData const* eventData /*
     {
         case CREATURE_TYPE_MECHANICAL:
         {
-            ApplySpellImmune(0, IMMUNITY_EFFECT, SPELL_EFFECT_HEAL, true);
-            ApplySpellImmune(0, IMMUNITY_EFFECT, SPELL_EFFECT_HEAL_MAX_HEALTH, true);
-            ApplySpellImmune(0, IMMUNITY_STATE, SPELL_AURA_PERIODIC_HEAL, true);
+            //creature 200013 heal
+            if(entry!=200013)
+            {
+                ApplySpellImmune(0, IMMUNITY_EFFECT, SPELL_EFFECT_HEAL, true);
+                ApplySpellImmune(0, IMMUNITY_EFFECT, SPELL_EFFECT_HEAL_MAX_HEALTH, true);
+                ApplySpellImmune(0, IMMUNITY_STATE, SPELL_AURA_PERIODIC_HEAL, true);
+            }
             ApplySpellImmune(0, IMMUNITY_STATE, SPELL_AURA_PERIODIC_LEECH, true);
             // no break
         }
@@ -635,6 +639,10 @@ bool Creature::UpdateEntry(uint32 entry, GameEventCreatureData const* eventData 
         SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLUS_MOB);
     else
         RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLUS_MOB);
+
+    // Detect Magic mod
+    if (!(IsPet() && GetOwnerGuid().IsPlayer()))
+        SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_AURAS_VISIBLE);
 
     m_reputationId = -1;
     if (FactionTemplateEntry const* pFactionTemplate = sObjectMgr.GetFactionTemplateEntry(GetCreatureInfo()->faction))
@@ -1599,7 +1607,7 @@ void Creature::SetLootRecipient(Unit* unit)
         return;
 
     // set player for non group case or if group will disbanded
-    if (unit->IsPet() && player->GetPetGuid() == unit->GetObjectGuid())
+    if (unit->IsPet() && player->GetPetGuid() == unit->GetObjectGuid() && !player->IsControlledByOwnClient() && player->IsBot())
         m_lootRecipientGuid = unit->GetObjectGuid();
     else
         m_lootRecipientGuid = player->GetObjectGuid();

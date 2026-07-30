@@ -280,6 +280,9 @@ class ChatHandler
         bool HandlePartyBotAddCommand(char * args);
         bool HandlePartyBotCloneCommand(char * args);
         bool HandlePartyBotLoadCommand(char * args);
+        bool HandlePartyBotAuthorizeAddCommand(char * args);
+        bool HandlePartyBotAuthorizeShowCommand(char * args);
+        bool HandlePartyBotAuthorizeClearCommand(char * args);
         bool HandlePartyBotSetRoleCommand(char * args);
         bool HandlePartyBotAttackStartCommand(char * args);
         bool HandlePartyBotAttackStopCommand(char * args);
@@ -932,6 +935,7 @@ class ChatHandler
         bool HandleWpExportCommand(char* args);
 
         bool HandleHelpCommand(char* args);
+        bool HandleItemLevelCommand(char* args);
         bool HandleCommandsCommand(char* args);
         bool HandleStartCommand(char* args);
         bool HandleMountCommand(char* args);
@@ -1038,6 +1042,9 @@ class ChatHandler
         bool HandleRepairitemsCommand(char* args);
         bool HandleStableCommand(char* args);
         bool HandleQuitCommand(char* args);
+        
+        //Dual Talent Specialization
+        bool HandleSwapSpec(char* args);
 
         //! Development Commands
         bool HandleSaveAllCommand(char* args);

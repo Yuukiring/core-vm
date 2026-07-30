@@ -106,6 +106,7 @@ public:
     Player* SelectBuffTarget(SpellEntry const* pSpellEntry) const;
     Player* SelectBuffTarget(SpellEntry const* pSingleSpellEntry, SpellEntry const* pGroupSpellEntry, SpellEntry const*& pSelectedSpellEntry) const;
     Player* SelectDispelTarget(SpellEntry const* pSpellEntry) const;
+    Unit* SelectDispelTargetPet(SpellEntry const* pSpellEntry) const;
     bool IsValidBuffTarget(Unit const* pTarget, SpellEntry const* pSpellEntry) const;
     bool IsValidHealTarget(Unit const* pTarget, float healthPercent = 100.0f) const;
     bool IsValidHostileTarget(Unit const* pTarget) const;
@@ -287,11 +288,14 @@ public:
     {
         struct
         {
-            SpellEntry const* spells[45];
+            SpellEntry const* spells[50];
         } raw;
         struct
         {
+            SpellEntry const* pImprovedDevotionAura;
             SpellEntry const* pAura;
+            SpellEntry const* pQuZhu;
+            SpellEntry const* pShiZiJunDaJi;
             SpellEntry const* pSeal;
             SpellEntry const* pBlessingBuff;
             SpellEntry const* pBlessingOfProtection;
@@ -311,6 +315,7 @@ public:
             SpellEntry const* pHolyWrath;
             SpellEntry const* pTurnEvil;
             SpellEntry const* pHolyShield;
+            SpellEntry const* pRepentance;
         } paladin;
         struct
         {
@@ -332,6 +337,7 @@ public:
             SpellEntry const* pWaterTotem;
             SpellEntry const* pManaTideTotem;
             SpellEntry const* pWeaponBuff;
+            SpellEntry const* pTotemicRecall;
         } shaman;
         struct
         {
@@ -351,12 +357,19 @@ public:
             SpellEntry const* pFeignDeath;
             SpellEntry const* pScareBeast;
             SpellEntry const* pVolley;
+            SpellEntry const* pTrueshotAura;
+            SpellEntry const* pDeterrence;
+            SpellEntry const* pScatterShot;
+            SpellEntry const* pTranquilizingShot;
+            SpellEntry const* pViperSting;
         } hunter;
         struct
         {
             SpellEntry const* pIceArmor;
             SpellEntry const* pArcaneIntellect;
             SpellEntry const* pArcaneBrilliance;
+            SpellEntry const* pATuoSiZhiGun;
+            SpellEntry const* pBlinkDagger;
             SpellEntry const* pIceBarrier;
             SpellEntry const* pManaShield;
             SpellEntry const* pPolymorph;
@@ -378,10 +391,12 @@ public:
             SpellEntry const* pBlizzard;
             SpellEntry const* pBlastWave;
             SpellEntry const* pCombustion;
+            SpellEntry const* pDetectMagic;
         } mage;
         struct
         {
             SpellEntry const* pPowerWordFortitude;
+            SpellEntry const* pXuLingZhiRen;
             SpellEntry const* pDivineSpirit;
             SpellEntry const* pPrayerofSpirit;
             SpellEntry const* pPrayerofFortitude;
@@ -410,6 +425,7 @@ public:
         struct
         {
             SpellEntry const* pDemonArmor;
+            SpellEntry const* pEMoFuTi;
             SpellEntry const* pDeathCoil;
             SpellEntry const* pDetectInvisibility;
             SpellEntry const* pShadowWard;
@@ -501,6 +517,7 @@ public:
             SpellEntry const* pSprint;
             SpellEntry const* pMainHandPoison;
             SpellEntry const* pOffHandPoison;
+            SpellEntry const* pSmokeBomb;
         } rogue;
         struct
         {
@@ -528,6 +545,7 @@ public:
             SpellEntry const* pNaturesSwiftness;
             SpellEntry const* pEntanglingRoots;
             SpellEntry const* pHibernate;
+            SpellEntry const* pOmenOfClarity;
             // Cat
             SpellEntry const* pProwl;
             SpellEntry const* pPounce;

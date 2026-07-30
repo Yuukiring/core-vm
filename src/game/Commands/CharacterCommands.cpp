@@ -2027,6 +2027,12 @@ bool ChatHandler::HandleCharacterPremadeGearCommand(char* args)
         SendSysMessage(LANG_NO_CHAR_SELECTED);
         return false;
     }
+    std::unique_ptr<QueryResult> result(CharacterDatabase.PQuery("SELECT `account` FROM `characters` WHERE `guid` = '%u' and `name` = '%s'", sObjectMgr.GetPlayerGuidByName(pPlayer->GetName()).GetCounter(), pPlayer->GetName()));
+    if ((!pPlayer->IsBot() || result) && !m_session->GetPlayer()->IsGameMaster())
+    {
+        PSendSysMessage("Permission denied.");
+        return false;
+    }
 
     if (!*args)
     {
@@ -2126,6 +2132,13 @@ bool ChatHandler::HandleCharacterPremadeSpecCommand(char* args)
     if (!pPlayer)
     {
         SendSysMessage(LANG_NO_CHAR_SELECTED);
+        return false;
+    }
+
+    std::unique_ptr<QueryResult> result(CharacterDatabase.PQuery("SELECT `account` FROM `characters` WHERE `guid` = '%u' and `name` = '%s'", sObjectMgr.GetPlayerGuidByName(pPlayer->GetName()).GetCounter(), pPlayer->GetName()));
+    if ((!pPlayer->IsBot() || result) && !m_session->GetPlayer()->IsGameMaster())
+    {
+        PSendSysMessage("Permission denied.");
         return false;
     }
 
@@ -5877,4 +5890,57 @@ bool ChatHandler::HandleListVisibleGuidsCommand(char* args)
         PSendSysMessage("- %s", guid.GetString().c_str());
 
     return true;
+}
+
+bool ChatHandler::HandleItemLevelCommand(char* args)
+{
+    Player* pPlayer = GetSelectedPlayer();
+    if (!pPlayer)
+    {
+        SendSysMessage(LANG_NO_CHAR_SELECTED);
+        SetSentErrorMessage(true);
+        return false;
+    }
+    if (GetAccessLevel() == SEC_PLAYER)
+        if (m_session->GetPlayer()->GetTeam() != pPlayer->GetTeam())
+        {
+            SendSysMessage(LANG_NO_CHAR_SELECTED);
+            SetSentErrorMessage(true);
+            return false;
+        }
+    float itemLevel = pPlayer->GetItemLevel();
+    PSendSysMessage("Item level for player %s: %.1f", pPlayer->GetName(), itemLevel);
+    PSendSysMessage("Raid MC requirement: %.1f", sWorld.getConfig(CONFIG_FLOAT_ITEM_LEVEL_MC));
+    PSendSysMessage("Raid OL requirement: %.1f", sWorld.getConfig(CONFIG_FLOAT_ITEM_LEVEL_OL));
+    PSendSysMessage("Raid BWL requirement: %.1f", sWorld.getConfig(CONFIG_FLOAT_ITEM_LEVEL_BWL));
+    PSendSysMessage("Raid ZG requirement: %.1f", sWorld.getConfig(CONFIG_FLOAT_ITEM_LEVEL_ZG));
+    PSendSysMessage("Raid RAQ requirement: %.1f", sWorld.getConfig(CONFIG_FLOAT_ITEM_LEVEL_RAQ));
+    PSendSysMessage("Raid TAQ requirement: %.1f", sWorld.getConfig(CONFIG_FLOAT_ITEM_LEVEL_TAQ));
+    PSendSysMessage("Raid NAXX requirement: %.1f", sWorld.getConfig(CONFIG_FLOAT_ITEM_LEVEL_NAXX));
+    return true;
+}
+
+//Dual Talent Specialization
+bool ChatHandler::HandleSwapSpec(char* /*args*/)
+{
+    if(m_session->GetPlayer()->HasItemCount(26001, 1))
+    {
+        uint32 res = m_session->GetPlayer()->SwapSpec();
+        switch (res) {
+            case 3: {
+                PSendSysMessage("Please try again later!");
+			    break;
+            }
+		    case 2: {
+			    PSendSysMessage("Level above 10 required.");
+			    break;
+		    }
+		    case 1: {
+                PSendSysMessage("Succeed!");
+			    break;
+		    }
+	    }
+	    return true;
+    }
+	return false;
 }

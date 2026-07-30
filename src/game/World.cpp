@@ -616,6 +616,64 @@ void World::LoadConfigSettings(bool reload)
     setConfig(CONFIG_BOOL_ALLOW_TWO_SIDE_WHO_LIST,            "AllowTwoSide.WhoList", false);
     setConfig(CONFIG_BOOL_ALLOW_TWO_SIDE_ADD_FRIEND,          "AllowTwoSide.AddFriend", false);
 
+    //EtherealBlade & AstralImprisonment In Raid
+    setConfig(CONFIG_PARTYBOT_ETHEREALBLADE_RAID,       "PartyBot.EtherealBlade.Raid",  1);
+    setConfig(CONFIG_PARTYBOT_ASTRALIMPRISONMENT_RAID,  "PartyBot.AstralImprisonment.Raid",  1);
+
+    //BanToggleCastingCommand
+    setConfig(CONFIG_PARTYBOT_BANTOGGLECASTINGCOMMAND,  "PartyBot.BanToggleCastingCommand",  1);
+
+    //Dual Talent Specialization
+    setConfig(CONFIG_SWAP_SPEC_INTERVAL,    "SwapSpecInterval", 900);
+
+    //Bot Summon Pet
+    setConfig(CONFIG_WARRIOR_BOT_SUMMON_PET,    "WarriorBotSummonPet",  1);
+    setConfig(CONFIG_PALADIN_BOT_SUMMON_PET,    "PaladinBotSummonPet",  1);
+    setConfig(CONFIG_HUNTER_BOT_SUMMON_PET,     "HunterBotSummonPet",   1);
+    setConfig(CONFIG_ROGUE_BOT_SUMMON_PET,      "RogueBotSummonPet",    1);
+    setConfig(CONFIG_PRIEST_BOT_SUMMON_PET,     "PriestBotSummonPet",   1);
+    setConfig(CONFIG_SHAMAN_BOT_SUMMON_PET,     "ShamanBotSummonPet",   1);
+    setConfig(CONFIG_MAGE_BOT_SUMMON_PET,       "MageBotSummonPet",     1);
+    setConfig(CONFIG_WARLOCK_BOT_SUMMON_PET,    "WarlockBotSummonPet",  1);
+    setConfig(CONFIG_DRUID_BOT_SUMMON_PET,      "DruidBotSummonPet",    1);
+
+    //Bot Buff
+    setConfig(CONFIG_WARRIOR_BOT_BATTLE_SHOUT,          "WarriorBotBattleShout",        1);
+    setConfig(CONFIG_PALADIN_BOT_AURA,                  "PaladinBotAura",               1);
+    setConfig(CONFIG_PALADIN_BOT_BLESSING,              "PaladinBotBlessing",           1);
+    setConfig(CONFIG_HUNTER_BOT_TRUE_SHOT_AURA,         "HunterBotTrueshotAura",        1);
+    setConfig(CONFIG_PRIEST_BOT_POWER_WORD_FORTITUDE,   "PriestBotPowerWordFortitude",  1);
+    setConfig(CONFIG_PRIEST_BOT_DIVINE_SPIRIT,          "PriestBotDivineSpirit",        1);
+    setConfig(CONFIG_PRIEST_BOT_SHADOW_PROTECTION,      "PriestBotShadowProtection",    1);
+    setConfig(CONFIG_SHAMAN_BOT_TOTEM,                  "ShamanBotTotem",               1);
+    setConfig(CONFIG_MAGE_BOT_ARCANE_INTELLECT,         "MageBotArcaneIntellect",       1);
+    setConfig(CONFIG_WARLOCK_BOT_DETECT_INVISIBILITY,   "WarlockBotDetectInvisibility", 1);
+    setConfig(CONFIG_DRUID_BOT_MARK_OF_THE_WILD,        "DruidBotMarkoftheWild",        1);
+    setConfig(CONFIG_DRUID_BOT_THORNS,                  "DruidBotThorns",               1);
+
+    setConfig(CONFIG_BOT_HUNTER_PET_LOSE_HAPPINESS,    "BotHunterPetLoseHappiness",  0);
+    setConfig(CONFIG_BOT_ENVIRONMENTAL_DAMAGE,    "BotEnvironmentalDamage",  0);
+    setConfig(CONFIG_BOT_DURABILITY_POINTS_LOSS,    "BotDurabilityPointsLoss",  0);
+
+    setConfig(CONFIG_BOT_LOOT_MONEY,    "BotLootMoney",  0);
+    setConfig(CONFIG_BOT_LOOT_ROLL,    "BotLootRoll",  0);
+    setConfig(CONFIG_BOT_DISPEL_PET_OUT_OF_COMBAT,    "BotDispelPetOutOfCombat",  1);
+    setConfig(CONFIG_BOT_DISPEL_PET_IN_COMBAT,    "BotDispelPetInCombat",  0);
+    setConfig(CONFIG_BATTLE_BOT_QUEUED_MAX_COUNT,    "BattleBot.QueuedMaxCount",  0);
+
+    setConfig(CONFIG_UINT32_BUFF_JIEFUFUTI_COMMON,    "Buff.JieFuFuTi.Common",  99);
+    setConfig(CONFIG_UINT32_BUFF_JIEFUFUTI_INSTANCE,    "Buff.JieFuFuTi.Instance",  99);
+    setConfig(CONFIG_UINT32_BUFF_JIEFUFUTI_RAID,    "Buff.JieFuFuTi.Raid",  99);
+    setConfig(CONFIG_UINT32_BUFF_JIEFUFUTI_BATTLEGROUND,    "Buff.JieFuFuTi.BattleGround",  99);
+
+    setConfig(CONFIG_UINT32_PRICE_TRAVELBOOTS,    "Price.TravelBoots",  50000);
+
+    setConfig(CONFIG_HARDCORECHALLENGER_BAN_INVITE,    "HardcoreChallenger.Ban.Invite",  1);
+    setConfig(CONFIG_HARDCORECHALLENGER_BAN_PARTYBOT,    "HardcoreChallenger.Ban.PartyBot",  1);
+    setConfig(CONFIG_HARDCORECHALLENGER_BAN_TRADE,    "HardcoreChallenger.Ban.Trade",  1);
+    setConfig(CONFIG_HARDCORECHALLENGER_BAN_MAIL,    "HardcoreChallenger.Ban.Mail",  1);
+    setConfig(CONFIG_HARDCORECHALLENGER_BAN_AUCTION,    "HardcoreChallenger.Ban.Auction",  1);
+
     setConfig(CONFIG_UINT32_STRICT_PLAYER_NAMES,  "StrictPlayerNames",  0);
     setConfig(CONFIG_UINT32_STRICT_CHARTER_NAMES, "StrictCharterNames", 0);
     setConfig(CONFIG_UINT32_STRICT_PET_NAMES,     "StrictPetNames",     0);
@@ -660,6 +718,21 @@ void World::LoadConfigSettings(bool reload)
     setConfig(CONFIG_UINT32_INSTANCE_RESET_TIME_HOUR, "Instance.ResetTimeHour", 4);
     setConfig(CONFIG_UINT32_INSTANCE_UNLOAD_DELAY,    "Instance.UnloadDelay", 30 * MINUTE * IN_MILLISECONDS);
     setConfig(CONFIG_UINT32_INSTANCE_PER_HOUR_LIMIT, "Instance.PerHourLimit", MAX_INSTANCE_PER_ACCOUNT_PER_HOUR);
+    setConfig(CONFIG_BOOL_INSTANCE_IGNORE_AQ_GATE, "Instance.IgnoreAQGate", true);
+    setConfig(CONFIG_BOOL_RAID_MC, "Raid.MC", true);
+    setConfig(CONFIG_BOOL_RAID_OL, "Raid.OL", true);
+    setConfig(CONFIG_BOOL_RAID_BWL, "Raid.BWL", true);
+    setConfig(CONFIG_BOOL_RAID_ZG, "Raid.ZG", true);
+    setConfig(CONFIG_BOOL_RAID_RAQ, "Raid.RAQ", true);
+    setConfig(CONFIG_BOOL_RAID_TAQ, "Raid.TAQ", true);
+    setConfig(CONFIG_BOOL_RAID_NAXX, "Raid.NAXX", true);
+    setConfig(CONFIG_FLOAT_ITEM_LEVEL_MC, "ItemLevel.MC", 54.0f);
+    setConfig(CONFIG_FLOAT_ITEM_LEVEL_OL, "ItemLevel.OL", 54.0f);
+    setConfig(CONFIG_FLOAT_ITEM_LEVEL_BWL, "ItemLevel.BWL", 62.0f);
+    setConfig(CONFIG_FLOAT_ITEM_LEVEL_ZG, "ItemLevel.ZG", 50.0f);
+    setConfig(CONFIG_FLOAT_ITEM_LEVEL_RAQ, "ItemLevel.RAQ", 58.0f);
+    setConfig(CONFIG_FLOAT_ITEM_LEVEL_TAQ, "ItemLevel.TAQ", 66.0f);
+    setConfig(CONFIG_FLOAT_ITEM_LEVEL_NAXX, "ItemLevel.NAXX", 70.0f);
 
     setConfig(CONFIG_UINT32_MAX_PRIMARY_TRADE_SKILL, "MaxPrimaryTradeSkill", 2);
     setConfigMinMax(CONFIG_UINT32_MIN_PETITION_SIGNS, "MinPetitionSigns", 9, 0, 9);
@@ -1030,6 +1103,9 @@ void World::LoadConfigSettings(bool reload)
     setConfig(CONFIG_UINT32_DYN_RESPAWN_AFFECT_LEVEL_BELOW, "DynamicRespawn.AffectLevelBelow", 0);
     setConfig(CONFIG_UINT32_DYN_RESPAWN_PLAYERS_THRESHOLD, "DynamicRespawn.PlayersThreshold", 0);
     setConfig(CONFIG_UINT32_DYN_RESPAWN_PLAYERS_LEVELDIFF, "DynamicRespawn.PlayersMaxLevelDiff", 0);
+
+    //Modification - trading in loot for two hours.
+    setConfig(CONFIG_UINT32_TRADINGRAIDLOOT_TIME, "TradingRaidLoot.Time", 7200);
 
     setConfig(CONFIG_UINT32_CHANNEL_INVITE_MIN_LEVEL, "ChannelInvite.MinLevel", 10);
     setConfig(CONFIG_BOOL_WHISPER_RESTRICTION, "WhisperRestriction", false);
@@ -1837,6 +1913,9 @@ void World::SetInitialWorldSettings()
 
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "Loading AH bot");
     sAuctionHouseBotMgr.Load();
+
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "Updating AH bot");
+    sAuctionHouseBotMgr.Update(true);
 
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "Caching player phases (obsolete)");
     sObjectMgr.LoadPlayerPhaseFromDb();

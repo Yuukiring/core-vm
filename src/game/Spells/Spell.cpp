@@ -55,6 +55,12 @@ using namespace Spells;
 #define SPELL_CHANNEL_VISUAL_TIMER 800
 
 extern pEffect SpellEffects[TOTAL_SPELL_EFFECTS];
+uint32 getTimestamp_spell()
+{
+    time_t rawtime = time(NULL);
+    struct tm *timeinfo = localtime(&rawtime);
+    return mktime(timeinfo);
+}
 
 Spell::Spell(Unit* caster, SpellEntry const* info, bool triggered, ObjectGuid originalCasterGUID, SpellEntry const* triggeredBy, Unit* victim, SpellEntry const* triggeredByParent):
     m_spellInfo(info), m_triggeredBySpellInfo(triggeredBy), m_triggeredByParentSpellInfo(triggeredByParent), m_caster(caster), m_casterUnit(caster), m_IsTriggeredSpell(triggered)
@@ -445,6 +451,12 @@ void Spell::FillTargetMap()
 
 SpellCastResult Spell::CheckScriptTargeting(SpellEffectIndex effIndex, uint32 chainTargets, float radius, uint32 targetMode, UnitList& tempUnitList)
 {
+    /*
+    if (m_spellInfo->Id == 24934)
+    {
+        return SPELL_CAST_OK;
+    }
+    */
     SpellScriptTargetBounds bounds = sSpellMgr.GetSpellScriptTargetBounds(m_spellInfo->Id);
 
     if (bounds.first == bounds.second)
@@ -1336,6 +1348,50 @@ void Spell::DoAllEffectOnTarget(TargetInfo *target)
 
         if (pRealUnitCaster)
         {
+            // Purification
+            if (m_spellInfo->SpellFamilyName == SPELLFAMILY_PALADIN)
+            {
+                if (m_spellInfo->IsFitToFamilyMask<CF_PALADIN_FLASH_OF_LIGHT1>() || m_spellInfo->IsFitToFamilyMask<CF_PALADIN_HOLY_LIGHT1>() || m_spellInfo->IsFitToFamilyMask<CF_PALADIN_FLASH_OF_LIGHT2>() || m_spellInfo->IsFitToFamilyMask<CF_PALADIN_HOLY_LIGHT2>())
+                {
+                    if (pRealUnitCaster->HasAura(34199))
+                    {
+                        unitTarget->CastCustomSpell(unitTarget, 34200, static_cast<uint32>((addhealth + gain) * 0.25f), {}, {}, true);
+                    }
+                }
+            }
+            // Spiritual Healing
+            else if (m_spellInfo->SpellFamilyName == SPELLFAMILY_PRIEST)
+            {
+                if (m_spellInfo->IsFitToFamilyMask<CF_PRIEST_HEAL>() || m_spellInfo->IsFitToFamilyMask<CF_PRIEST_FLASH_HEAL>() || m_spellInfo->IsFitToFamilyMask<CF_PRIEST_GREATER_HEAL>() || m_spellInfo->IsFitToFamilyMask<CF_PRIEST_LESSER_HEAL>())
+                {
+                    if (pRealUnitCaster->HasAura(14898))
+                    {
+                        if ((addhealth - gain) > 50)
+                            pRealUnitCaster->CastCustomSpell(pRealUnitCaster, 34571, static_cast<uint32>(std::min(m_spellInfo->manaCost * 0.1f, (addhealth - gain) * 0.02f)), {}, {}, true);
+                    }
+                    else if (pRealUnitCaster->HasAura(15349))
+                    {
+                        if ((addhealth - gain) > 25)
+                            pRealUnitCaster->CastCustomSpell(pRealUnitCaster, 34571, static_cast<uint32>(std::min(m_spellInfo->manaCost * 0.2f, (addhealth - gain) * 0.04f)), {}, {}, true);
+                    }
+                    else if (pRealUnitCaster->HasAura(15354))
+                    {
+                        if ((addhealth - gain) > 17)
+                            pRealUnitCaster->CastCustomSpell(pRealUnitCaster, 34571, static_cast<uint32>(std::min(m_spellInfo->manaCost * 0.3f, (addhealth - gain) * 0.06f)), {}, {}, true);
+                    }
+                    else if (pRealUnitCaster->HasAura(15355))
+                    {
+                        if ((addhealth - gain) > 13)
+                            pRealUnitCaster->CastCustomSpell(pRealUnitCaster, 34571, static_cast<uint32>(std::min(m_spellInfo->manaCost * 0.4f, (addhealth - gain) * 0.08f)), {}, {}, true);
+                    }
+                    else if (pRealUnitCaster->HasAura(15356))
+                    {
+                        if ((addhealth - gain) > 10)
+                            pRealUnitCaster->CastCustomSpell(pRealUnitCaster, 34571, static_cast<uint32>(std::min(m_spellInfo->manaCost * 0.5f, (addhealth - gain) * 0.1f)), {}, {}, true);
+                    }
+                }
+            }
+
             float classThreatModifier = pRealUnitCaster->GetClass() == CLASS_PALADIN ? 0.25f : 0.5f;
             unitTarget->GetHostileRefManager().threatAssist(pRealUnitCaster, float(gain) * classThreatModifier * sSpellMgr.GetSpellThreatMultiplier(m_spellInfo), m_spellInfo);
         }
@@ -1694,6 +1750,32 @@ void Spell::DoSpellHitOnUnit(Unit* unit, uint32 effectMask)
 
     // Get Data Needed for Diminishing Returns, some effects may have multiple auras, so this must be done on spell hit, not aura add
     m_diminishGroup = m_spellInfo->GetDiminishingReturnsGroup(m_triggeredByAuraSpell);
+    // Improved Enslave Demon - talent 18825
+    // Scream of Pain - talent 34469
+    // Deep Freeze - talent 34508
+    // Mana Break - Felhunter spell 34541
+    // Lash of Pain - Succubus spell 34542
+    // Mace Specialization - talent 5530
+    // Head Shot Normal - talent 34011
+    // Head Shot Holy - talent 34304
+    // Head Shot Fire - talent 34305
+    // Head Shot Nature - talent 34306
+    // Head Shot Frost - talent 34307
+    // Head Shot Shadow - talent 34308
+    // Head Shot Arcane - talent 34309
+    // Timber Chain - Timbersaw spell 34101
+    // Bartuc's Cut-Throat - item spell 34055
+    // Blackout - talent 15269
+    // Starfire Stun - talent 16922
+    // Pyroclasm - talent 18093
+    // Impact - talent 12355
+    // Seal of Justice Stun - paladin spell 20170
+    // Revenge Stun - talent 12798
+    // Improved Concussive Shot - tanlent 19410
+    if ((m_spellInfo->IsFitToFamily<SPELLFAMILY_WARLOCK, CF_WARLOCK_ENSLAVE_DEMON>() && pRealUnitCaster->HasAura(18825)) || ((m_spellInfo->Id == 5782 || m_spellInfo->Id == 6213 || m_spellInfo->Id == 6215 || m_spellInfo->Id == 5484 || m_spellInfo->Id == 17928) && pRealUnitCaster->HasAura(34469)) || m_spellInfo->Id == 34508 || m_spellInfo->Id == 34541 || m_spellInfo->Id == 34542 || m_spellInfo->Id == 5530 || m_spellInfo->Id == 34011 || m_spellInfo->Id == 34304 || m_spellInfo->Id == 34305 || m_spellInfo->Id == 34306 || m_spellInfo->Id == 34307 || m_spellInfo->Id == 34308 || m_spellInfo->Id == 34309 || m_spellInfo->Id == 34101 || m_spellInfo->Id == 34055 || m_spellInfo->Id == 15269 || m_spellInfo->Id == 16922 || m_spellInfo->Id == 18093 || m_spellInfo->Id == 12355 || m_spellInfo->Id == 20170 || m_spellInfo->Id == 12798 || m_spellInfo->Id == 19410)
+    {
+        m_diminishGroup = DIMINISHING_NONE;
+    }
     m_diminishLevel = unit->GetDiminishing(m_diminishGroup);
 
     if (m_spellInfo->IsSpellAppliesAura(effectMask))
@@ -5252,6 +5334,22 @@ void Spell::TakeAmmo()
     if (!pCaster)
         return;
 
+    // Hurter - Butterfly : 25%
+    // Hurter - Reload - Rank1 : 25%
+    // Hurter - Reload - Rank2 : 50%
+    if (pCaster->GetClass() == CLASS_HUNTER)
+    {
+        uint8 TakeNoAmmoRate = 0;
+        if (pCaster->HasAura(34132))
+            TakeNoAmmoRate += 25;
+        if (pCaster->HasAura(34302))
+            TakeNoAmmoRate += 25;
+        else if (pCaster->HasAura(34303))
+            TakeNoAmmoRate += 50;
+        if (urand(0, 100) < TakeNoAmmoRate)
+            return;
+    }
+
     // Some ranged attacks dont take any ammo
     switch (m_spellInfo->Id)
     {
@@ -5503,6 +5601,114 @@ SpellCastResult Spell::CheckCast(bool strict)
                 return SPELL_FAILED_MOVING;
         }
 
+        switch (m_spellInfo->Id)
+        {
+            // Warrior - Charge
+            case 100:
+            case 6178:
+            case 11578:
+                if (m_casterUnit->IsInCombat() && !m_casterUnit->HasAura(34327))
+                    return SPELL_FAILED_AFFECTING_COMBAT;
+                if (m_casterUnit->HasAura(34524) || m_casterUnit->HasAura(34499))
+                    return SPELL_FAILED_NOPATH;
+                break;
+            // Warrior - Intercept
+            case 20252:
+            case 20616:
+            case 20617:
+            // Druid - Feral Charge
+            case 16979:
+            // Goblin Rocket Helmet & Horned Viking Helmet - Reckless Charge
+            case 22641:
+                if (m_casterUnit->HasAura(34524) || m_casterUnit->HasAura(34499))
+                    return SPELL_FAILED_NOPATH;
+                break;
+            // Druid - Aquatic Form
+            case 1066:
+            // Hook of the Master Angler - Master Angler
+            case 24347:
+                if (m_casterUnit->HasAura(34524) || m_casterUnit->HasAura(34499))
+                    return SPELL_FAILED_ONLY_UNDERWATER;
+                break;
+            // Frost Trap
+            case 13809:
+            // Freezing Trap
+            case 1499:
+            case 14310:
+            case 14311:
+            // Explosive Trap
+            case 13813:
+            case 14316:
+            case 14317:
+            // Immolation Trap
+            case 13795:
+            case 14302:
+            case 14303:
+            case 14304:
+            case 14305:
+                if (m_casterUnit->IsInCombat() && !m_casterUnit->HasAura(34325))
+                    return SPELL_FAILED_AFFECTING_COMBAT;
+                break;
+            // E Mo Xie Dian - Inferno can be cast indoors
+            case 1122:
+                if (!m_caster->GetTerrain()->IsOutdoors(m_caster->GetPositionX(), m_caster->GetPositionY(), m_caster->GetPositionZ()) && !m_casterUnit->HasAura(34358))
+                    return SPELL_FAILED_ONLY_OUTDOORS;
+                break;
+            // Warlock Demonic Circle : Summon
+            case 34294:
+                if (m_caster->GetTypeId() != TYPEID_PLAYER)
+                    return SPELL_FAILED_NOT_READY;
+                if (Player* pCaster = m_caster->ToPlayer())
+                {
+                    std::unique_ptr<QueryResult> result = CharacterDatabase.PQuery("SELECT 1 FROM `character_warlock_demonic_circle` WHERE `guid`='%u' and `type`='1' and `timer`>='%u' and `timer`<='%u'", pCaster->GetObjectGuid(), getTimestamp_spell()-300, getTimestamp_spell());
+                    if (result)
+                        return SPELL_FAILED_NOT_READY;
+                }
+                break;
+            // Warlock Demonic Circle : Teleport
+            case 34295:
+                if (m_caster->GetTypeId() != TYPEID_PLAYER)
+                    return SPELL_FAILED_NOT_READY;
+                if (Player* pCaster = m_caster->ToPlayer())
+                {
+                    std::unique_ptr<QueryResult> result = CharacterDatabase.PQuery("SELECT position_x, position_y, position_z FROM `character_warlock_demonic_circle` WHERE `guid`='%u' and `map_id`='%u' and `timer`>='%u' and `timer`<='%u' and `instance_id`='%u'", pCaster->GetObjectGuid(), pCaster->GetMapId(), getTimestamp_spell()-300, getTimestamp_spell(), pCaster->GetInstanceId());
+                    if (result)
+                    {
+                        float minimumDistance = 100.0f;
+                        do
+                        {
+                            Field* fields = result->Fetch();
+                            float x = fields[0].GetFloat();
+                            float y = fields[1].GetFloat();
+                            float z = fields[2].GetFloat();
+                            minimumDistance = std::min(minimumDistance, pCaster->GetDistance(x,y,z));
+                        }
+                        while (result->NextRow());
+                        if (minimumDistance > 60.0f)
+                            return SPELL_FAILED_OUT_OF_RANGE;
+                    }
+                    else
+                        return SPELL_FAILED_NOT_HERE;
+                }
+                break;
+            // Mage - Kelens Dagger of Escape
+            // Rogue - Hound Steps
+            // can not be used in Blackrock Spire specific areas
+            case 34002:
+            case 34372:
+                if (m_casterUnit->GetMapId() == MAP_BLACKROCK_SPIRE)
+                    if (m_casterUnit->GetPositionX() >= -20.0f && m_casterUnit->GetPositionX() <= 50.0f)
+                        if (m_casterUnit->GetPositionY() >= -370.0f && m_casterUnit->GetPositionY() <= -290.0f)
+                            if (m_casterUnit->GetPositionZ() >= 30.0f && m_casterUnit->GetPositionZ() <= 100.0f)
+                                return SPELL_FAILED_NOT_HERE;
+                break;
+            case 34524:
+            case 34499:
+                if (m_casterUnit->HasAura(23333) || m_casterUnit->HasAura(23335))
+                    return SPELL_FAILED_NOT_HERE;
+                break;
+        }
+
         // Loatheb Corrupted Mind spell failed
         if (!m_CastItem && !m_IsTriggeredSpell)
         {
@@ -5534,8 +5740,70 @@ SpellCastResult Spell::CheckCast(bool strict)
         }
     }
 
+    // Eye of Kilrogg - Demonic Circle : Summon
+    if (m_spellInfo->Id == 34538)
+    {
+        if (m_caster->GetTypeId() != TYPEID_UNIT)
+            return SPELL_FAILED_NOT_READY;
+        if (Creature* creature = m_caster->ToCreature())
+        {
+            if (creature->GetEntry() != 4277)
+                return SPELL_FAILED_BAD_TARGETS;
+            if (Player* charmer = ::ToPlayer(creature->GetCharmer()))
+            {
+                if (charmer->GetClass() != CLASS_WARLOCK)
+                    return SPELL_FAILED_NOT_KNOWN;
+                if (!charmer->HasItemCount(6265, 1))
+                    return SPELL_FAILED_ITEM_NOT_READY;
+                std::unique_ptr<QueryResult> result = CharacterDatabase.PQuery("SELECT 1 FROM `character_warlock_demonic_circle` WHERE `guid`='%u' and `type`='2' and `timer`>='%u' and `timer`<='%u'", charmer->GetObjectGuid(), getTimestamp_spell()-300, getTimestamp_spell());
+                if (result)
+                {
+                    creature->AddCooldown(m_spellInfo, nullptr, false, 1.5 * IN_MILLISECONDS);
+                    return SPELL_FAILED_NOT_READY;
+                }
+            }
+        }
+    }
+
     if (Unit* target = m_targets.getUnitTarget())
     {
+        // Detect Magic mod
+        if (m_spellInfo->Id == 2855)
+            if (!(target->IsPlayer() || (target->IsPet() && target->GetOwnerGuid().IsPlayer())))
+                return SPELL_FAILED_BAD_TARGETS;
+        // Arcane Orb mod
+        if (m_spellInfo->Id == 34085)
+        {
+            if (target->HasAura(34086))
+                return SPELL_FAILED_BAD_TARGETS;
+
+            bool targetCanReflectSpell = false;
+            Unit::AuraList const& reflectSpells = target->GetAurasByType(SPELL_AURA_REFLECT_SPELLS);
+            for (const auto i : reflectSpells)
+            {
+                if (i->GetModifier()->m_amount >= 99.0f)
+                {
+                    targetCanReflectSpell = true;
+                    break;
+                }
+            }
+            if (targetCanReflectSpell)
+                return SPELL_FAILED_BAD_TARGETS;
+
+            bool targetCanReflectArcane = false;
+            Unit::AuraList const& reflectSpellsSchool = target->GetAurasByType(SPELL_AURA_REFLECT_SPELLS_SCHOOL);
+            for (const auto i : reflectSpellsSchool)
+            {
+                if (i->GetModifier()->m_amount >= 99.0f &&
+                    i->GetModifier()->m_miscvalue & SPELL_SCHOOL_MASK_ARCANE)
+                {
+                    targetCanReflectArcane = true;
+                    break;
+                }
+            }
+            if (targetCanReflectArcane)
+                return SPELL_FAILED_BAD_TARGETS;
+        }
         if (m_spellInfo->IsSpellAppliesAura() && !m_spellInfo->IsAreaOfEffectSpell())
         {
             // A more powerful spell is already active
@@ -6396,11 +6664,18 @@ SpellCastResult Spell::CheckCast(bool strict)
                 if (!m_caster->IsPlayer())
                     return SPELL_FAILED_BAD_TARGETS;
 
+                // creature 200017/200149 can not be possessed
+                if (m_targets.getUnitTarget()->GetEntry() == 200017 || m_targets.getUnitTarget()->GetEntry() == 200149)
+                    return SPELL_FAILED_BAD_TARGETS;
                 // no break
             }
             case SPELL_AURA_MOD_CHARM:
             {
                 if (!m_casterUnit)
+                    return SPELL_FAILED_BAD_TARGETS;
+
+                // creature 200017/200149 can not be charmed
+                if (m_targets.getUnitTarget()->GetEntry() == 200017 || m_targets.getUnitTarget()->GetEntry() == 200149)
                     return SPELL_FAILED_BAD_TARGETS;
 
                 if (!IsScriptTarget(m_spellInfo->EffectImplicitTargetA[i]))
@@ -8422,11 +8697,11 @@ bool Spell::ShouldRemoveStealthAuras()
         {
             // Check for Improved Sap
             if (m_casterUnit->HasAura(14076))  // Rank 1
-                doUnaura = !roll_chance_u(30);
+                doUnaura = !roll_chance_u(50);
             else if (m_casterUnit->HasAura(14094))  // Rank 2
-                doUnaura = !roll_chance_u(60);
+                doUnaura = !roll_chance_u(100);
             else if (m_casterUnit->HasAura(14095))  // Rank 3
-                doUnaura = !roll_chance_u(90);
+                doUnaura = !roll_chance_u(100);
         }
 
         return doUnaura;

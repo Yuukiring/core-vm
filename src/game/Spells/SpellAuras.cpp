@@ -340,6 +340,11 @@ void Aura::Refresh(Unit* caster, Unit* target, SpellAuraHolder* pRefreshWithHold
                 lockStats = true;
                 break;
         }
+
+        // Warlock - Infernal & Doomguard
+        if (target->IsCreature() && (target->GetEntry() == 89 || target->GetEntry() == 11859))
+            lockStats = false;
+
         if (lockStats)
             target->SetCanModifyStats(false);
 #endif
@@ -1425,7 +1430,8 @@ void Aura::TriggerSpell()
                         if (lRage > 100)                    // rage stored as rage*10
                             lRage = 100;
                         target->ModifyPower(POWER_RAGE, -lRage);
-                        float FRTriggerBasePoints = lRage * LifePerRage / 10;
+                        // Frenzied Regeneration bonus 0.5% Druid armor per rage per tick
+                        float FRTriggerBasePoints = lRage * (LifePerRage + target->GetArmor() * 0.005f) / 10;
                         target->CastCustomSpell(target, 22845, rand_dither(FRTriggerBasePoints), {}, {}, true, nullptr, this);
                         return;
                     }
@@ -1587,6 +1593,112 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
             {
                 switch (GetId())
                 {
+                    //Chromie's Belongings
+                    case 34187:
+                    {
+                        bool castspells = true;
+                        //uint32 spells[8] = {24425,22888,34073,34072,34075,34074,34076,34276};
+                        uint32 spells[8] = {34486,34487,34073,34072,34075,34074,34076,34276};
+                        uint32 times[8] = {};
+                        if (Player* player = ToPlayer(GetCaster()))
+                        {
+                            for (int i = 0; i < 8; i++)
+                            {
+                                if (player->HasAura(spells[i]))
+                                {
+                                    castspells = false;
+                                    break;
+                                }
+                            }
+                            Aura* aura = NULL;
+                            Aura* pet_aura = NULL;
+                            SpellAuraHolder* auraH = NULL;
+                            SpellAuraHolder* pet_auraH = NULL;
+                            std::unique_ptr<QueryResult> result = CharacterDatabase.PQuery("select spell_24425,spell_22888,spell_34073,spell_34072,spell_34075,spell_34074,spell_34076,spell_34276 from `character_chromie_belongings` where `guid` = %u", player->GetGUIDLow());
+                            if (castspells)
+                            {
+                                if (result)
+                                {
+                                    Field* fields = result->Fetch();
+                                    for (int i = 0; i < 8; i++)
+                                    {
+                                        if (Pet* pet = player->GetPet())
+                                        {
+                                            if (fields[i].GetUInt32() != 0)
+                                            {
+                                                auraH = player->AddAura(spells[i], ADD_AURA_POSITIVE, player);
+                                                auraH->SetAuraDuration(fields[i].GetUInt32());
+                                                auraH->SetAuraMaxDuration(fields[i].GetUInt32());
+                                                auraH->RefreshHolder();
+                                                if (pet->HasAura(spells[i]))
+                                                    pet->RemoveAurasDueToSpell(spells[i]);
+                                                pet_auraH = pet->AddAura(spells[i], ADD_AURA_POSITIVE, pet);
+                                                pet_auraH->SetAuraDuration(fields[i].GetUInt32());
+                                                pet_auraH->SetAuraMaxDuration(fields[i].GetUInt32());
+                                                pet_auraH->RefreshHolder();
+                                            }
+                                        }
+                                        else
+                                        {
+                                            if (fields[i].GetUInt32() != 0)
+                                            {
+                                                auraH = player->AddAura(spells[i], ADD_AURA_POSITIVE, player);
+                                                auraH->SetAuraDuration(fields[i].GetUInt32());
+                                                auraH->SetAuraMaxDuration(fields[i].GetUInt32());
+                                                auraH->RefreshHolder();
+                                            }
+                                        }
+
+                                    }
+                                    CharacterDatabase.PExecute("delete from `character_chromie_belongings` where `guid` = '%u'", player->GetGUIDLow());
+                                }
+                                else
+                                    player->GetSession()->SendAreaTriggerMessage("No Buffs stored.");
+                            }
+                            else
+                            {
+                                if (result)
+                                {
+                                    Field* fields = result->Fetch();
+                                    for (int i = 0; i < 8; i++)
+                                    {
+                                        times[i] = fields[i].GetUInt32();
+                                    }
+                                }
+                                for (int i = 0; i < 8; i++)
+                                {
+                                    if (Pet* pet = player->GetPet())
+                                    {
+                                        if (aura = player->GetAura(spells[i], EFFECT_INDEX_0))
+                                        {
+                                            times[i] += aura->GetAuraDuration();
+                                            if (times[i] > 7200000)
+                                                times[i] = 7200000;
+                                            aura->GetHolder()->SetAuraMaxDuration(0);
+                                            aura->GetHolder()->RefreshHolder();
+                                            if (pet_aura = pet->GetAura(spells[i], EFFECT_INDEX_0))
+                                            {
+                                                pet_aura->GetHolder()->SetAuraMaxDuration(0);
+                                                pet_aura->GetHolder()->RefreshHolder();
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (aura = player->GetAura(spells[i], EFFECT_INDEX_0))
+                                        {
+                                            times[i] += aura->GetAuraDuration();
+                                            if (times[i] > 7200000)
+                                                times[i] = 7200000;
+                                            aura->GetHolder()->SetAuraMaxDuration(0);
+                                            aura->GetHolder()->RefreshHolder();
+                                        }
+                                    }
+                                }
+                                CharacterDatabase.PExecute("replace into `character_chromie_belongings` (`guid`, `spell_24425`, `spell_22888`, `spell_34073`, `spell_34072`, `spell_34075`, `spell_34074`, `spell_34076`, `spell_34276`) VALUES (%u, %u, %u, %u, %u, %u, %u, %u, %u)", player->GetGUIDLow(), times[0], times[1], times[2], times[3], times[4], times[5], times[6], times[7]);
+                            }
+                        }
+                    }
                     case 2584:                              // Waiting to Resurrect
                     {
                         // for cases where aura would re-apply and player is no longer in BG
@@ -1728,6 +1840,24 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                     {
                         target->HandleEmoteCommand(EMOTE_STATE_DANCE);
                         break;
+                    }
+                }
+                break;
+            }
+            case SPELLFAMILY_ROGUE:
+            {
+                switch (GetId())
+                {
+                    case 34373: // Smoke Bomb
+                    {
+                        if (Unit* caster = GetCaster())
+                            caster->CastSpell(caster, 34510, true);
+                        if (target)
+                        {
+                            m_isPeriodic            = true;
+                            m_modifier.periodictime = 1000;
+                        }
+                        return;
                     }
                 }
                 break;
@@ -2536,7 +2666,14 @@ void Aura::HandleAuraModShapeshift(bool apply, bool Real)
                         }
                     }
                     if (target->GetPower(POWER_RAGE) > Rage_val)
+                    {
+                        if (target->HasAura(12296))
+                        {
+                            uint32 Life_val = (uint32)((target->GetPower(POWER_RAGE) - Rage_val) * target->GetMaxHealth() / target->GetMaxPower(POWER_RAGE) / 5);
+                            target->ModifyHealth(Life_val);
+                        }
                         target->SetPower(POWER_RAGE, Rage_val);
+                    }
                     break;
                 }
                 default:
@@ -3887,7 +4024,22 @@ void Aura::HandleAuraModTotalThreat(bool apply, bool Real)
     if (!caster || !caster->IsAlive())
         return;
 
-    target->GetHostileRefManager().addTempThreat(m_modifier.m_amount, apply);
+    int32 threat_value = m_modifier.m_amount;
+
+    switch (GetId())
+    {
+        // Priest - Fade
+        case 586:
+        case 9578:
+        case 9579:
+        case 9592:
+        case 10941:
+        case 10942:
+            threat_value -= (target->GetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS + SPELL_SCHOOL_HOLY) + rand_dither(target->GetTotalAuraModifier(SPELL_AURA_MOD_HEALING_DONE) * 0.5f));
+            break;
+    }
+
+    target->GetHostileRefManager().addTempThreat(threat_value, apply);
 }
 
 void Aura::HandleModTaunt(bool apply, bool Real)
@@ -4281,14 +4433,33 @@ void Aura::HandlePeriodicHeal(bool apply, bool /*Real*/)
         if (!caster)
             return;
 
+        SpellEntry const* spellProto = GetSpellProto();
+
         // World of Warcraft Client Patch 1.11.0 (2006-06-20)
         // - Periodic Healing: Spells which do periodic healing will now have
         //   their strength determined at the moment they are cast.Changing the
         //   amount of bonus healing you have during the duration of the periodic
         //   spell will have no impact on how much it heals for.
 #if SUPPORTED_CLIENT_BUILD > CLIENT_BUILD_1_10_2
-        m_modifier.m_amount = caster->SpellHealingBonusDone(target, GetSpellProto(), GetEffIndex(), m_modifier.m_amount, DOT, GetStackAmount());
+        m_modifier.m_amount = caster->SpellHealingBonusDone(target, spellProto, GetEffIndex(), m_modifier.m_amount, DOT, GetStackAmount());
 #endif
+
+        if (caster->IsPlayer())
+        {
+            switch (spellProto->SpellFamilyName)
+            {
+                case SPELLFAMILY_HUNTER:
+                    // hunter - Mend Pet - 20% owner's health and mana bonus
+                    if (spellProto->IsFitToFamilyMask<CF_HUNTER_MEND_PET>())
+                    {
+                        m_modifier.m_amount += (caster->GetMaxHealth() + caster->GetMaxPower(POWER_MANA)) * 0.04f;
+                        break;
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
     }
 }
 
@@ -4302,6 +4473,37 @@ float Aura::CalculateDotDamage() const
 
     switch (spellProto->SpellFamilyName)
     {
+        case SPELLFAMILY_GENERIC:
+        {
+            // Doomguard - Rend : dot damage bonus 1% max health per trigger
+            if (spellProto->Id == 21949)
+            {
+                Unit* pOwner = caster ? caster->GetCharmerOrOwner() : nullptr;
+                if (pOwner && pOwner->GetTypeId() == TYPEID_PLAYER)
+                    damage += caster->GetMaxHealth() * 0.01f;
+            }
+            break;
+        }
+        case SPELLFAMILY_WARLOCK:
+        {
+            // Doomguard - Rain of Fire : dot damage bonus 3% max mana per trigger
+            if (spellProto->Id == 19474)
+            {
+                Unit* pOwner = caster ? caster->GetCharmerOrOwner() : nullptr;
+                if (pOwner && pOwner->GetTypeId() == TYPEID_PLAYER && caster->GetPowerType() == POWER_MANA)
+                    damage += caster->GetMaxPower(POWER_MANA) * 0.03f;
+            }
+            break;
+        }
+        case SPELLFAMILY_MAGE:
+        {
+            // Sulfuras, Hand of Ragnaros - Fireball : dot damage bonus 4% attack power per trigger
+            if (spellProto->Id == 21162)
+            {
+                damage += caster->GetTotalAttackPowerValue(BASE_ATTACK) * 0.04f;
+            }
+            break;
+        }
         case SPELLFAMILY_DRUID:
         {
 #if SUPPORTED_CLIENT_BUILD > CLIENT_BUILD_1_11_2
@@ -4314,10 +4516,30 @@ float Aura::CalculateDotDamage() const
                     uint8 cp = ((Player*)caster)->GetComboPoints();
 
                     if (cp > 4) cp = 4;
-                    damage += caster->GetTotalAttackPowerValue(BASE_ATTACK) * cp / 100;
+                    damage += (caster->GetTotalAttackPowerValue(BASE_ATTACK) * cp / 100) * 1.33f;
                 }
             }
+            // Rake
+            else if (spellProto->Id == 1822 || spellProto->Id == 1823 || spellProto->Id == 1824 || spellProto->Id == 9904)
+            {
+                // 0.035 * AP per trigger
+                damage = damage + (caster->GetTotalAttackPowerValue(BASE_ATTACK) * 0.035f);
+            }
 #endif
+            break;
+        }
+        case SPELLFAMILY_HUNTER:
+        {
+            // HUNTER - Explosive Trap : dot damage bonus 1% hp
+            if (spellProto->Id == 13812 || spellProto->Id == 14314 || spellProto->Id == 14315)
+            {
+                damage += caster->GetMaxHealth() * 0.01f;
+            }
+            // HUNTER - Immolation Trap : dot damage bonus 5% hp
+            else if (spellProto->Id == 13797 || spellProto->Id == 14298 || spellProto->Id == 14299 || spellProto->Id == 14300 || spellProto->Id == 14301)
+            {
+                damage += caster->GetMaxHealth() * 0.05f;
+            }
             break;
         }
         case SPELLFAMILY_ROGUE:
@@ -4333,6 +4555,18 @@ float Aura::CalculateDotDamage() const
                     uint8 cp = ((Player*)caster)->GetComboPoints();
                     if (cp > 3) cp = 3;
                     damage += caster->GetTotalAttackPowerValue(BASE_ATTACK) * cp / 100;
+                }
+            }
+            // Master Poisoner - deadly poison
+            else if (spellProto->IsFitToFamilyMask<CF_ROGUE_DEADLY_POISON>())
+            {
+                if (caster->HasAura(34481))
+                {
+                    damage += caster->GetTotalAttackPowerValue(BASE_ATTACK) * 0.02f * GetStackAmount();
+                }
+                else if (caster->HasAura(34482))
+                {
+                    damage += caster->GetTotalAttackPowerValue(BASE_ATTACK) * 0.04f * GetStackAmount();
                 }
             }
             // World of Warcraft Client Patch 1.12.0 (2006-08-22)
@@ -5109,8 +5343,14 @@ void Aura::HandleAuraModAttackPower(bool apply, bool /*Real*/)
     if (apply)
     {
         if (Unit* caster = GetCaster())
+        {
             if (Player* modOwner = caster->GetSpellModOwner())
+            {
+                if (GetSpellProto()->IsFitToFamily<SPELLFAMILY_PALADIN, CF_PALADIN_BLESSING_OF_MIGHT>() && modOwner->HasAura(20048) && modOwner == GetTarget())
+                    m_modifier.m_amount += modOwner->GetStat(STAT_STRENGTH);
                 modOwner->ApplySpellMod(GetSpellProto()->Id, SPELLMOD_ATTACK_POWER, m_modifier.m_amount);
+            }
+        }
     }
 
     GetTarget()->HandleAttackPowerModifier(MELEE_AP_MODS, IsPositive() ? AP_MOD_POSITIVE_FLAT : AP_MOD_NEGATIVE_FLAT, m_modifier.m_amount, apply);
@@ -5466,6 +5706,12 @@ void Aura::HandleShapeshiftBoosts(bool apply)
                     if (i->GetSpellProto()->SpellIconID == 240 && i->GetModifier()->m_miscvalue == 3)
                     {
                         int32 HotWMod = i->GetModifier()->m_amount;
+                        // FORM_CAT
+                        if (HotWSpellId == 24900)
+                            HotWMod = rand_dither(HotWMod * 2.0f);
+                        // FORM_BEAR & FORM_DIREBEAR
+                        else if (HotWSpellId == 24899)
+                            HotWMod = rand_dither(HotWMod * 1.5f);
                         target->CastCustomSpell(target, HotWSpellId, HotWMod, {}, {}, true, nullptr, this);
                         break;
                     }
@@ -5712,8 +5958,14 @@ void Aura::HandleSchoolAbsorb(bool apply, bool Real)
                     // Power Word: Shield
                     if (spellProto->IsFitToFamilyMask<CF_PRIEST_POWER_WORD_SHIELD>())
                     {
-                        //+10% from +healing bonus
-                        DoneActualBenefit = caster->SpellBaseHealingBonusDone(spellProto->GetSpellSchoolMask()) * 0.1f;
+                        // 10% coeff from healing bonus in vanilla
+                        // 100% coeff from healing and damage bonus mod by jianggn
+                        // Aphotic Shield bonus
+                        DoneActualBenefit = caster->SpellBaseHealingBonusDone(spellProto->GetSpellSchoolMask()) * 1.0f + caster->SpellBaseDamageBonusDone(spellProto->GetSpellSchoolMask()) * 1.0f;
+                        if (caster->HasAura(34313))
+                            DoneActualBenefit += (caster->GetMaxHealth() + caster->GetMaxPower(POWER_MANA)) * 0.15f;
+                        else if (caster->HasAura(34314))
+                            DoneActualBenefit += (caster->GetMaxHealth() + caster->GetMaxPower(POWER_MANA)) * 0.3f;
                         break;
                     }
                     break;
@@ -5722,7 +5974,15 @@ void Aura::HandleSchoolAbsorb(bool apply, bool Real)
                     if (spellProto->IsFitToFamilyMask<CF_MAGE_FIRE_WARD, CF_MAGE_FROST_WARD>())
                     {
                         //+10% from +spd bonus
-                        DoneActualBenefit = caster->SpellBaseDamageBonusDone(spellProto->GetSpellSchoolMask()) * 0.1f;
+                        //+50% from +spd bonus mod by jianggn
+                        DoneActualBenefit = caster->SpellBaseDamageBonusDone(spellProto->GetSpellSchoolMask()) * 0.5f;
+                        break;
+                    }
+                    // Ice Barrier
+                    if (spellProto->Id == 11426 || spellProto->Id == 13031 || spellProto->Id == 13032 || spellProto->Id == 13033)
+                    {
+                        //+100% from +spd bonus mod by jianggn
+                        DoneActualBenefit = caster->SpellBaseDamageBonusDone(spellProto->GetSpellSchoolMask()) * 1.0f;
                         break;
                     }
                     break;
@@ -5731,7 +5991,45 @@ void Aura::HandleSchoolAbsorb(bool apply, bool Real)
                     if (spellProto->SpellIconID == 207 && spellProto->Category == 56)
                     {
                         //+10% from +spd bonus
-                        DoneActualBenefit = caster->SpellBaseDamageBonusDone(spellProto->GetSpellSchoolMask()) * 0.1f;
+                        //+50% from +spd bonus mod by jianggn
+                        DoneActualBenefit = caster->SpellBaseDamageBonusDone(spellProto->GetSpellSchoolMask()) * 0.5f;
+                        break;
+                    }
+                    // Spellstone
+                    if (spellProto->SpellIconID == 344)
+                    {
+                        //+50% from +spd bonus mod by jianggn
+                        DoneActualBenefit = caster->SpellBaseDamageBonusDone(spellProto->GetSpellSchoolMask()) * 0.5f;
+                        if (caster->HasAura(18774))
+                        {
+                            DoneActualBenefit *= 1.50;
+                        }
+                        else if (caster->HasAura(18775))
+                        {
+                            DoneActualBenefit *= 2.00;
+                        }
+                        break;
+                    }
+                    // Voidwalker - Sacrifice
+                    if (spellProto->SpellIconID == 693)
+                    {
+                        //+50% from max health bonus
+                        DoneActualBenefit = caster->GetMaxHealth() * 0.5f;
+                        if (Player* pOwner = ::ToPlayer(caster->GetOwner()))
+                        {
+                            if (pOwner->HasAura(18705))
+                            {
+                                DoneActualBenefit *= 1.10f;
+                            }
+                            else if (pOwner->HasAura(18706))
+                            {
+                                DoneActualBenefit *= 1.20f;
+                            }
+                            else if (pOwner->HasAura(18707))
+                            {
+                                DoneActualBenefit *= 1.30f;
+                            }
+                        }
                         break;
                     }
                     break;
@@ -5812,8 +6110,13 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
                 GetAuraScript()->OnPeriodicCalculateAmount(this, fdamage);
 
             // Consecration: recalculate the damage on each tick
+            // Born Equal bonus 0.5% max hp and mana
             if (spellProto->IsFitToFamily<SPELLFAMILY_PALADIN, CF_PALADIN_CONSECRATION>())
+            {
                 fdamage = pCaster->SpellDamageBonusDone(target, GetSpellProto(), GetEffIndex(), m_currentBasePoints, DOT, GetStackAmount());
+                if (pCaster->HasAura(34537))
+                    fdamage += (pCaster->GetMaxHealth() + pCaster->GetMaxPower(POWER_MANA)) * 0.0075f;
+            }
             // Curse of Agony damage-per-tick calculation
             else if (spellProto->IsFitToFamily<SPELLFAMILY_WARLOCK, CF_WARLOCK_CURSE_OF_AGONY>())
                 fdamage += (-1 + ((int)GetAuraTicks() - 1) / 4) * (spellProto->CalculateSimpleValue(EFFECT_INDEX_0) / 2.0);
@@ -5831,7 +6134,24 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
                 fdamage = target->MeleeDamageBonusTaken(pCaster, fdamage, attackType, spellProto, GetEffIndex(), DOT, GetStackAmount());
             }
 
-            uint32 pdamage = rand_ditheru(fdamage);
+            uint32 pdamage = rand_ditheru(std::max(fdamage, 0.f)); // prevent negative damage due to sickness
+            // Tentacle Sword
+            if (pCaster->GetEntry() == 200017 && spellProto->Id == 18807)
+            {
+                if (Unit* pOwner = pCaster->GetOwner())
+                    pdamage = rand_ditheru(pdamage + (pOwner->GetArmor() * 0.005f) + (pOwner->GetMaxHealth() * 0.01f));
+            }
+            // Scarlet Rot - item 26047
+            // Warlock Corruption/Immolate/Curse Of Agony Can Crit
+            // Galaxy - item 26046
+            // Priest Shadow Word Pain/Mind Flay Can Crit
+            // Vizjerah's Summoning - set 561
+            // Druid Rake/Rip Can Crit
+            if ((pCaster->HasAura(34321) && spellProto->IsFitToFamily<SPELLFAMILY_WARLOCK, CF_WARLOCK_CORRUPTION, CF_WARLOCK_IMMOLATE, CF_WARLOCK_CURSE_OF_AGONY>()) || (pCaster->HasAura(34320) && spellProto->IsFitToFamily<SPELLFAMILY_PRIEST, CF_PRIEST_SHADOW_WORD_PAIN, CF_PRIEST_MIND_FLAY>()) || (pCaster->HasAura(34184) && spellProto->IsFitToFamily<SPELLFAMILY_DRUID, CF_DRUID_RAKE_CLAW, CF_DRUID_RIP_BITE>()))
+            {
+                if (pCaster->IsSpellCrit(target, spellProto, GetSchoolMask(spellProto->School), BASE_ATTACK))
+                    pdamage = pCaster->SpellCriticalDamageBonus(spellProto, pdamage, target, nullptr);
+            }
             uint32 const originalDamage = pdamage;
 
             target->CalculateDamageAbsorbAndResist(pCaster, spellProto->GetSpellSchoolMask(), DOT, pdamage, &absorb, &resist, spellProto);
@@ -6112,7 +6432,8 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
             if (pCaster->GetMaxPower(power) > 0)
             {
                 gain_multiplier = spellProto->EffectMultipleValue[GetEffIndex()];
-
+                if (spellProto->Id == 3034 || spellProto->Id == 14279 || spellProto->Id == 14280)
+                    gain_multiplier = 1.0f; // Viper Sting gain 100% mana of drained amount
                 if (Player* modOwner = pCaster->GetSpellModOwner())
                     modOwner->ApplySpellMod(GetId(), SPELLMOD_MULTIPLE_VALUE, gain_multiplier);
             }
@@ -6180,6 +6501,9 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
 
             if (GetAuraScript())
                 GetAuraScript()->OnPeriodicCalculateAmount(this, fdamage);
+
+            if (spellProto->IsFitToFamily<SPELLFAMILY_PALADIN, CF_PALADIN_BLESSING_OF_WISDOM>() && target->HasAura(20245) && target == pCaster)
+                fdamage += target->GetStat(STAT_INTELLECT);
 
             DETAIL_FILTER_LOG(LOG_FILTER_PERIODIC_AFFECTS, "PeriodicTick: %s energize %s for %g dmg inflicted by %u",
                               GetCasterGuid().GetString().c_str(), target->GetGuidStr().c_str(), fdamage, GetId());
@@ -6492,6 +6816,38 @@ void Aura::PeriodicDummyTick()
             break;
         }
 
+        case SPELLFAMILY_ROGUE:
+        {
+            switch (spell->Id)
+            {
+                // Smoke Bomb
+                case 34373:
+                {
+                    if (target->IsInCombat())
+                    {
+                        uint32 rand = urand(0, 99);
+                        uint32 limit = 15;
+                        switch (target->GetLevel())
+                        {
+                            case 61:
+                                limit = 10;
+                                break;
+                            case 62:
+                                limit = 5;
+                                break;
+                            case 63:
+                                limit = 1;
+                                break;
+                        }
+                        if (rand < limit)   // chance to fall down
+                            target->CastSpell(target, 6869, true, nullptr, this);   // Fall Down 6869
+                    }
+                    return;
+                }
+            }
+            break;
+        }
+
         case SPELLFAMILY_PALADIN:
         {
 #if SUPPORTED_CLIENT_BUILD <= CLIENT_BUILD_1_8_4
@@ -6565,22 +6921,37 @@ void Aura::HandleManaShield(bool apply, bool Real)
     if (!Real)
         return;
 
+    Unit* caster = GetCaster();
+    if (!caster)
+        return;
+
+    Unit* target = GetTarget();
+    SpellEntry const* spellProto = GetSpellProto();
     // prevent double apply bonuses
-    if (apply && (GetTarget()->GetTypeId() != TYPEID_PLAYER || !((Player*)GetTarget())->GetSession()->PlayerLoading()))
+    if (apply && (target->GetTypeId() != TYPEID_PLAYER || !((Player*)target)->GetSession()->PlayerLoading()))
     {
-        if (Unit* caster = GetCaster())
+        float DoneActualBenefit = 0.0f;
+        switch (spellProto->SpellFamilyName)
         {
-            float DoneActualBenefit = 0.0f;
-
-            // Mana Shield
-            // 0% coeff in vanilla (changed patch 2.4.0)
-            // if (GetSpellProto()->IsFitToFamily<SPELLFAMILY_MAGE, CF_MAGE_MANA_SHIELD>())
-            //    DoneActualBenefit = caster->SpellBaseDamageBonusDone(GetSpellSchoolMask(GetSpellProto())) * 0.5f;
-
-            // DoneActualBenefit *= caster->CalculateLevelPenalty(GetSpellProto());
-
-            m_modifier.m_amount += DoneActualBenefit;
+            case SPELLFAMILY_MAGE:
+                // Mana Shield
+                if (spellProto->IsFitToFamilyMask<CF_MAGE_MANA_SHIELD>())
+                {
+                    // 0% coeff in vanilla (changed patch 2.4.0)
+                    // 150% coeff mod by jianggn
+                    DoneActualBenefit = caster->SpellBaseDamageBonusDone(spellProto->GetSpellSchoolMask()) * 1.5f;
+                    break;
+                }
+                break;
+            default:
+                break;
         }
+
+        DoneActualBenefit *= caster->CalculateLevelPenalty(GetSpellProto());
+
+        m_modifier.m_amount += DoneActualBenefit;
+
+        m_modifier.m_amount = rand_dither(m_modifier.m_amount);
     }
 }
 
@@ -6712,25 +7083,64 @@ void SpellAuraHolder::_AddSpellAuraHolder()
     // will be < MAX_AURAS slot (if find free) with !secondaura
     if (IsNeedVisibleSlot(caster))
     {
-        if (IsPositive())                                   // empty positive slot
+        if (m_target->IsPlayer() || (m_target->IsPet() && m_target->GetOwnerGuid().IsPlayer()))
         {
-            for (uint8 i = 0; i < MAX_POSITIVE_AURAS; i++)
+            if (IsPositive())                                   // empty positive slot
             {
-                if (m_target->GetUInt32Value((uint16)(UNIT_FIELD_AURA + i)) == 0)
+                for (uint8 i = 0; i < MAX_POSITIVE_AURAS; i++)
                 {
-                    slot = i;
-                    break;
+                    if (m_target->GetUInt32Value((uint16)(UNIT_FIELD_AURA + i)) == 0)
+                    {
+                        slot = i;
+                        break;
+                    }
+                }
+            }
+            else                                                // empty negative slot
+            {
+                for (uint8 i = MAX_POSITIVE_AURAS; i < MAX_AURAS; i++)
+                {
+                    if (m_target->GetUInt32Value((uint16)(UNIT_FIELD_AURA + i)) == 0)
+                    {
+                        slot = i;
+                        break;
+                    }
                 }
             }
         }
-        else                                                // empty negative slot
+        else
         {
-            for (uint8 i = MAX_POSITIVE_AURAS; i < MAX_AURAS; i++)
+            if (IsPositive())                                   // empty positive slot
             {
-                if (m_target->GetUInt32Value((uint16)(UNIT_FIELD_AURA + i)) == 0)
+                for (uint8 i = 0; i < 12; i++)
                 {
-                    slot = i;
-                    break;
+                    if (m_target->GetUInt32Value((uint16)(UNIT_FIELD_AURA + i)) == 0)
+                    {
+                        slot = i;
+                        break;
+                    }
+                }
+            }
+            else                                                // empty negative slot
+            {
+                for (uint8 i = MAX_POSITIVE_AURAS; i < MAX_AURAS; i++)
+                {
+                    if (m_target->GetUInt32Value((uint16)(UNIT_FIELD_AURA + i)) == 0)
+                    {
+                        slot = i;
+                        break;
+                    }
+                }
+                if (slot == NULL_AURA_SLOT)
+                {
+                    for (uint8 i = 12; i < MAX_POSITIVE_AURAS; i++)
+                    {
+                        if (m_target->GetUInt32Value((uint16)(UNIT_FIELD_AURA + i)) == 0)
+                        {
+                            slot = i;
+                            break;
+                        }
+                    }
                 }
             }
         }
@@ -6897,6 +7307,11 @@ void SpellAuraHolder::CleanupTriggeredSpells()
 bool SpellAuraHolder::ModStackAmount(int32 num)
 {
     uint32 protoStackAmount = m_spellProto->StackAmount;
+
+    // Ming Zun Liu Li Ti
+    if (Unit* caster = GetCaster())
+        if ((m_spellProto->Id == 34031 || m_spellProto->Id == 34032) && caster->HasAura(34503))
+            protoStackAmount = 150;
 
     // Can`t mod
     if (!protoStackAmount)
@@ -7091,6 +7506,17 @@ void SpellAuraHolder::HandleSpellSpecificBoosts(bool apply)
 
     switch (GetSpellProto()->SpellFamilyName)
     {
+        case SPELLFAMILY_GENERIC:
+        {
+            if (apply && GetId() == 13750)
+                if (Unit* pCaster = GetCaster())
+                    if (pCaster->HasAura(34483))
+                    {
+                        auto cdCheck = [](SpellEntry const & spellEntry) -> bool { return ((spellEntry.Id == 13877 || spellEntry.Id == 34373) && spellEntry.GetRecoveryTime() > 0); };
+                        static_cast<Player*>(pCaster)->RemoveSomeCooldown(cdCheck);
+                    }
+            break;
+        }
         case SPELLFAMILY_SHAMAN:
         {
             if (apply && GetSpellProto()->Id == 2645) // Check for Ghost Wolf
@@ -7102,6 +7528,24 @@ void SpellAuraHolder::HandleSpellSpecificBoosts(bool apply)
         case SPELLFAMILY_MAGE:
         {
             return;
+        }
+        case SPELLFAMILY_WARRIOR:
+        {
+            switch (GetId())
+            {
+                // Bladestorm - immunity
+                case 34476:
+                {
+                    spellId1 = 34516;
+                    spellId2 = 34517;
+                    spellId3 = 34518;
+                    spellId4 = 34519;
+                    break;
+                }
+                default:
+                    return;
+            }
+            break;
         }
         case SPELLFAMILY_HUNTER:
         {
@@ -7156,6 +7600,15 @@ void SpellAuraHolder::HandleSpellSpecificBoosts(bool apply)
 
 void SpellAuraHolder::HandleCastOnAuraRemoval() const
 {
+    if (GetSpellProto()->IsFitToFamily<SPELLFAMILY_MAGE, CF_MAGE_POLYMORPH>())
+    {
+        if (GetTarget()->HasAura(34524))
+            GetTarget()->RemoveAurasDueToSpell(34524);
+        if (GetTarget()->HasAura(34499))
+            GetTarget()->RemoveAurasDueToSpell(34499);
+        return;
+    }
+
     uint32 uiTriggeredSpell = 0;
     AuraRemoveMode mode = GetRemoveMode();
 
@@ -7172,6 +7625,47 @@ void SpellAuraHolder::HandleCastOnAuraRemoval() const
         {
             if (mode == AURA_REMOVE_BY_EXPIRE)
                 GetTarget()->CastSpell(GetTarget(), 24004, true);
+            break;
+        }
+        case 34106:
+        case 34113:
+        {
+            if (mode == AURA_REMOVE_BY_EXPIRE)
+                if (Unit* pOwner = GetTarget()->GetOwner())
+                    if (!pOwner->IsInCombat() && !pOwner->HasAura(23333) && !pOwner->HasAura(23335))
+                        pOwner->CastSpell(pOwner, 34368, true);
+            break;
+        }
+        case 34373:
+        {
+            if (Player* player = GetTarget()->ToPlayer())
+                player->SetDrunkValue(0, 0);
+            break;
+        }
+        case 34524:
+        {
+            if (Player* player = GetTarget()->ToPlayer())
+            {
+                player->SetCheatFly(false, false);
+                player->RemoveAurasDueToSpell(34506);
+                player->SetObjectScale(1.0f);
+                player->UpdateModelData();
+                player->m_movementInfo.moveFlags = (MOVEFLAG_JUMPING);
+                player->GetSession()->RejectMovementPacketsFor(100);
+                player->SendHeartBeat(true);
+            }
+            break;
+        }
+        case 34499:
+        {
+            if (Player* player = GetTarget()->ToPlayer())
+            {
+                player->SetCheatFly(false, false);
+                player->RemoveAurasDueToSpell(34506);
+                player->m_movementInfo.moveFlags = (MOVEFLAG_JUMPING);
+                player->GetSession()->RejectMovementPacketsFor(100);
+                player->SendHeartBeat(true);
+            }
             break;
         }
         default:
@@ -7270,6 +7764,20 @@ void SpellAuraHolder::Update(uint32 diff)
                         caster->ModifyHealth(-manaPerSecond);
                     else if (int32(caster->GetPower(powertype)) >= manaPerSecond)
                         caster->ModifyPower(powertype, -manaPerSecond);
+                    else
+                    {
+                        if (target)
+                            target->RemoveAurasDueToSpell(m_spellProto->Id, this);
+                        if (m_isChanneled)
+                            caster->InterruptSpell(CURRENT_CHANNELED_SPELL);
+                        if (Player* plCaster = caster->ToPlayer())
+                            Spell::SendCastResult(plCaster, m_spellProto, SPELL_FAILED_FIZZLE);
+                    }
+                }
+                else if (manaPerSecond && powertype == POWER_HEALTH && m_spellProto->IsFitToFamily<SPELLFAMILY_WARLOCK, CF_WARLOCK_HEALTH_FUNNEL>())
+                {
+                    if (int32(caster->GetHealth()) > int32(manaPerSecond / 2))
+                        caster->ModifyHealth(-int32(manaPerSecond / 2));
                     else
                     {
                         if (target)
@@ -7531,7 +8039,7 @@ void SpellAuraHolder::CalculateForBuffLimit()
 {
     m_visibleSlotLimitAffected = true;
 
-    if (IsPermanent())
+    if (IsPermanent() || m_spellProto->Id == 34000 || m_spellProto->Id == 34001 || m_spellProto->Id == 34072 || m_spellProto->Id == 34073 || m_spellProto->Id == 34074 || m_spellProto->Id == 34075 || m_spellProto->Id == 34076 || m_spellProto->Id == 34276 || m_spellProto->Id == 34486 || m_spellProto->Id == 34487)
         m_visibleSlotLimitScore = 3;
     else if (GetCasterGuid() != GetTarget()->GetObjectGuid())
         m_visibleSlotLimitScore = 2;
@@ -8069,6 +8577,26 @@ void SpellAuraHolder::CalculateHeartBeat(Unit* caster, Unit* target)
 
     _heartBeatRandValue = 0;
 
+    if (caster)
+    {
+        // Fingerslayer Blade - item 26044
+        // Improved Sap - talent 14095
+        // Improved Enslave Demon - talent 18825
+        if ((m_spellProto->IsFitToFamily<SPELLFAMILY_MAGE, CF_MAGE_POLYMORPH>() && caster->HasAura(34319)) || (m_spellProto->IsFitToFamily<SPELLFAMILY_ROGUE, CF_ROGUE_SAP>() && caster->HasAura(14095)) || (m_spellProto->IsFitToFamily<SPELLFAMILY_WARLOCK, CF_WARLOCK_ENSLAVE_DEMON>() && caster->HasAura(18825)))
+        {
+            return;
+        }
+        // Improved Succubus - talent 18756
+        // Seduction - spell 6358
+        else if (m_spellProto->Id == 6358)
+        {
+            if (Unit* pOwner = caster->GetOwner())
+            {
+                if (pOwner->HasAura(18756))
+                    return;
+            }
+        }
+    }
     // Permanent effects and positive spells don't have resist heartbeats.
     // The aura is checked for being positive in Aura::Aura rather than here since the last-added Aura is not yet in m_auras
     if (!m_permanent && m_maxDuration > 10000)

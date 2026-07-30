@@ -310,6 +310,9 @@ void WorldSession::HandleLootMoneyOpcode(NullClientPacket const& /*packet*/)
                 Player* playerGroup = itr->getSource();
                 if (!playerGroup)
                     continue;
+                //bot do not loot money
+                if (playerGroup->IsBot() && sWorld.getConfig(CONFIG_BOT_LOOT_MONEY) == 0)
+                    continue;
 
                 if (player->IsWithinLootXPDist(playerGroup))
                     playersNear.push_back(playerGroup);

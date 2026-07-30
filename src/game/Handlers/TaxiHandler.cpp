@@ -94,8 +94,33 @@ void WorldSession::SendTaxiMenu(Creature* unit)
 
     if (GetPlayer()->IsTaxiCheater())
     { // player is able to use all taxi nodes
-        for (uint32 i = 0; i < 8; ++i)
-            packet->knownNodesMask[i] = sTaxiNodesMask[i];
+        if (GetPlayer()->GetRace() == RACE_GNOME)
+        {
+            packet->knownNodesMask[0] = uint32(3456411898);
+            packet->knownNodesMask[1] = uint32(2148078929);
+            packet->knownNodesMask[2] = uint32(49991);
+            packet->knownNodesMask[3] = uint32(0);
+            packet->knownNodesMask[4] = uint32(0);
+            packet->knownNodesMask[5] = uint32(0);
+            packet->knownNodesMask[6] = uint32(0);
+            packet->knownNodesMask[7] = uint32(0);
+        }
+        else if (GetPlayer()->GetRace() == RACE_TROLL)
+        {
+            packet->knownNodesMask[0] = uint32(830166528);
+            packet->knownNodesMask[1] = uint32(315656872);
+            packet->knownNodesMask[2] = uint32(56504);
+            packet->knownNodesMask[3] = uint32(0);
+            packet->knownNodesMask[4] = uint32(0);
+            packet->knownNodesMask[5] = uint32(0);
+            packet->knownNodesMask[6] = uint32(0);
+            packet->knownNodesMask[7] = uint32(0);
+        }
+        else
+        {
+            for (uint32 i = 0; i < 8; ++i)
+                packet->knownNodesMask[i] = sTaxiNodesMask[i];
+        }
     }
     else
     {

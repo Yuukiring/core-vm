@@ -1015,9 +1015,18 @@ void SpellCaster::CalculateSpellDamage(SpellNonMeleeDamage* damageInfo, float da
     // damage mitigation
     if (damage > 0)
     {
-        // physical damage => armor
-        if (damageSchoolMask & SPELL_SCHOOL_MASK_NORMAL && !(spellInfo->Custom & SPELL_CUSTOM_IGNORE_ARMOR))
-            damage = CalcArmorReducedDamage(pVictim, damage);
+        if (Unit* pUnit = ToUnit())
+        {
+            // physical damage => armor
+            if (damageSchoolMask & SPELL_SCHOOL_MASK_NORMAL && !(spellInfo->Custom & SPELL_CUSTOM_IGNORE_ARMOR || (pUnit->HasAura(14195) && (spellInfo->IsFitToFamily<SPELLFAMILY_ROGUE, CF_ROGUE_EVISCERATE>() || spellInfo->Id == 34028))))
+                damage = CalcArmorReducedDamage(pVictim, damage);
+        }
+        else
+        {
+            // physical damage => armor
+            if (damageSchoolMask & SPELL_SCHOOL_MASK_NORMAL && !(spellInfo->Custom & SPELL_CUSTOM_IGNORE_ARMOR))
+                damage = CalcArmorReducedDamage(pVictim, damage);
+        }
     }
     else
         damage = 0;
@@ -1406,6 +1415,51 @@ float SpellCaster::SpellDamageBonusDone(Unit const* pVictim, SpellEntry const* s
                 case HAPPY:     DoneTotalMod *= 1.25; break;
                 case CONTENT:   break;
                 case UNHAPPY:   DoneTotalMod *= 0.75; break;
+            }
+        }
+    }
+
+    // Warlock spell power apply to IMP_FIREBOLT & SUCCUBUS_LASH_OF_PAIN
+    if (IsPet() && pUnit->GetOwnerGuid().IsPlayer())
+    {
+        // IMP_FIREBOLT
+        if (spellProto->Id == 3110 || spellProto->Id == 7799 || spellProto->Id == 7800 || spellProto->Id == 7801 || spellProto->Id == 7802 || spellProto->Id == 11762 || spellProto->Id == 11763)
+        {
+            if (pUnit->GetOwner()->HasAura(18694))
+            {
+                DoneTotal += pUnit->GetOwner()->GetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS + SPELL_SCHOOL_HOLY) * 0.35 * 1.10;
+            }
+            else if (pUnit->GetOwner()->HasAura(18695))
+            {
+                DoneTotal += pUnit->GetOwner()->GetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS + SPELL_SCHOOL_HOLY) * 0.35 * 1.20;
+            }
+            else if (pUnit->GetOwner()->HasAura(18696))
+            {
+                DoneTotal += pUnit->GetOwner()->GetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS + SPELL_SCHOOL_HOLY) * 0.35 * 1.30;
+            }
+            else
+            {
+                DoneTotal += pUnit->GetOwner()->GetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS + SPELL_SCHOOL_HOLY) * 0.35;
+            }
+        }
+        // SUCCUBUS_LASH_OF_PAIN
+        if (spellProto->Id == 7814 || spellProto->Id == 7815 || spellProto->Id == 7816 || spellProto->Id == 11778 || spellProto->Id == 11779 || spellProto->Id == 11780)
+        {
+            if (pUnit->GetOwner()->HasAura(18754))
+            {
+                DoneTotal += pUnit->GetOwner()->GetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS + SPELL_SCHOOL_HOLY) * 1.00 * 1.10;
+            }
+            else if (pUnit->GetOwner()->HasAura(18755))
+            {
+                DoneTotal += pUnit->GetOwner()->GetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS + SPELL_SCHOOL_HOLY) * 1.00 * 1.20;
+            }
+            else if (pUnit->GetOwner()->HasAura(18756))
+            {
+                DoneTotal += pUnit->GetOwner()->GetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS + SPELL_SCHOOL_HOLY) * 1.00 * 1.30;
+            }
+            else
+            {
+                DoneTotal += pUnit->GetOwner()->GetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS + SPELL_SCHOOL_HOLY) * 1.00;
             }
         }
     }

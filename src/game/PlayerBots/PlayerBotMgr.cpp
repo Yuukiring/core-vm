@@ -349,15 +349,31 @@ void PlayerBotMgr::Update(uint32 diff)
                 ASSERT(minLevel <= PLAYER_MAX_LEVEL);
                 uint32 const maxLevel = std::min<uint32>(minLevel + 9, PLAYER_MAX_LEVEL);
 
-                for (uint32 i = queuedAllianceCount[bracketId]; i < bg->GetMinPlayersPerTeam(); ++i)
+                if(sWorld.getConfig(CONFIG_BATTLE_BOT_QUEUED_MAX_COUNT) == 0)
                 {
-                    uint32 const botLevel = urand(minLevel, maxLevel);
-                    AddBattleBot(BattleGroundQueueTypeId(queueType), ALLIANCE, botLevel, true);
+                    for (uint32 i = queuedAllianceCount[bracketId]; i < bg->GetMinPlayersPerTeam(); ++i)
+                    {
+                        uint32 const botLevel = urand(minLevel, maxLevel);
+                        AddBattleBot(BattleGroundQueueTypeId(queueType), ALLIANCE, botLevel, true);
+                    }
+                    for (uint32 i = queuedHordeCount[bracketId]; i < bg->GetMinPlayersPerTeam(); ++i)
+                    {
+                        uint32 const botLevel = urand(minLevel, maxLevel);
+                        AddBattleBot(BattleGroundQueueTypeId(queueType), HORDE, botLevel, true);
+                    }
                 }
-                for (uint32 i = queuedHordeCount[bracketId]; i < bg->GetMinPlayersPerTeam(); ++i)
+                else
                 {
-                    uint32 const botLevel = urand(minLevel, maxLevel);
-                    AddBattleBot(BattleGroundQueueTypeId(queueType), HORDE, botLevel, true);
+                    for (uint32 i = queuedAllianceCount[bracketId]; i < bg->GetMaxPlayersPerTeam(); ++i)
+                    {
+                        uint32 const botLevel = urand(minLevel, maxLevel);
+                        AddBattleBot(BattleGroundQueueTypeId(queueType), ALLIANCE, botLevel, true);
+                    }
+                    for (uint32 i = queuedHordeCount[bracketId]; i < bg->GetMaxPlayersPerTeam(); ++i)
+                    {
+                        uint32 const botLevel = urand(minLevel, maxLevel);
+                        AddBattleBot(BattleGroundQueueTypeId(queueType), HORDE, botLevel, true);
+                    }
                 }
             }
         }
@@ -774,7 +790,14 @@ bool ChatHandler::HandleBotStartCommand(char * args)
 
 bool ChatHandler::PartyBotAddRequirementCheck(Player const* pPlayer, Player const* pTarget)
 {
-    if (pPlayer->IsTaxiFlying())
+    // Hardcore Challenger Can Not Add Bots
+    if (sWorld.getConfig(CONFIG_HARDCORECHALLENGER_BAN_PARTYBOT) == 1 && pPlayer->GetLevel()<60 && pPlayer->GetQuestStatus(10000) == QUEST_STATUS_COMPLETE)
+    {
+        SendSysMessage("Hardcore Challenger Can Not Add Bots.");
+        return false;
+    }
+
+    if (pPlayer->IsTaxiFlying() || pPlayer->HasAura(34524) || pPlayer->HasAura(34499))
     {
         SendSysMessage("Cannot add bots while flying.");
         return false;
@@ -903,22 +926,41 @@ bool ChatHandler::HandlePartyBotAddCommand(char* args)
             botClass = CLASS_DRUID;
         else if (option == "dps")
         {
-            botClass = PickRandomValue(CLASS_WARRIOR, CLASS_HUNTER, CLASS_ROGUE, CLASS_MAGE, CLASS_WARLOCK);
-            botRole = CombatBotBaseAI::IsMeleeDamageClass(botClass) ? ROLE_MELEE_DPS : ROLE_RANGE_DPS;
-        }
-        else if (option == "healer")
-        {
-            std::vector<uint32> dpsClasses = { CLASS_PRIEST, CLASS_DRUID };
+            std::vector<uint32> dpsClasses = { CLASS_WARRIOR, CLASS_HUNTER, CLASS_ROGUE, CLASS_PRIEST, CLASS_MAGE, CLASS_WARLOCK, CLASS_DRUID };
             if (pPlayer->GetTeam() == HORDE)
                 dpsClasses.push_back(CLASS_SHAMAN);
             else
                 dpsClasses.push_back(CLASS_PALADIN);
             botClass = SelectRandomContainerElement(dpsClasses);
+            if (botClass == CLASS_WARRIOR || botClass == CLASS_PALADIN || botClass == CLASS_ROGUE)
+            {
+                botRole = ROLE_MELEE_DPS;
+            }
+            else if (botClass == CLASS_HUNTER || botClass == CLASS_PRIEST || botClass == CLASS_MAGE || botClass == CLASS_WARLOCK)
+            {
+                botRole = ROLE_RANGE_DPS;
+            }
+            else if (botClass == CLASS_SHAMAN || botClass == CLASS_DRUID)
+            {
+                botRole = urand(0, 1) ? ROLE_MELEE_DPS : ROLE_RANGE_DPS;
+            }
+        }
+        else if (option == "healer")
+        {
+            std::vector<uint32> healerClasses = { CLASS_PRIEST, CLASS_DRUID };
+            if (pPlayer->GetTeam() == HORDE)
+                healerClasses.push_back(CLASS_SHAMAN);
+            else
+                healerClasses.push_back(CLASS_PALADIN);
+            botClass = SelectRandomContainerElement(healerClasses);
             botRole = ROLE_HEALER;
         }
         else if (option == "tank")
         {
-            botClass = CLASS_WARRIOR;
+            if (pPlayer->GetTeam() == HORDE)
+                botClass = PickRandomValue(CLASS_WARRIOR, CLASS_DRUID);
+            else
+                botClass = PickRandomValue(CLASS_WARRIOR, CLASS_PALADIN, CLASS_DRUID);
             botRole = ROLE_TANK;
         }
 
@@ -1005,6 +1047,12 @@ bool ChatHandler::HandlePartyBotLoadCommand(char* args)
     if (!pPlayer)
         return false;
 
+    if (!PartyBotAddRequirementCheck(pPlayer, nullptr))
+    {
+        SetSentErrorMessage(true);
+        return false;
+    }
+
     std::string name = ExtractPlayerNameFromLink(&args);
     if (name.empty())
     {
@@ -1028,6 +1076,24 @@ bool ChatHandler::HandlePartyBotLoadCommand(char* args)
         return false;
     }
 
+    // Hardcore Challenger Can Not Be Loaded As Party Bot
+    std::unique_ptr<QueryResult> result = CharacterDatabase.PQuery("SELECT `account` FROM `characters` WHERE `guid` = '%u' AND `name` = '%s' AND `level` < 60 AND EXISTS(SELECT 1 FROM `character_queststatus` WHERE `guid` = '%u' AND `quest` = 10000 AND `status` = 1)", guid, name.c_str(), guid);
+    if (result)
+    {
+        SendSysMessage("Hardcore Challenger Can Not Be Loaded As Party Bot.");
+        SetSentErrorMessage(true);
+        return false;
+    }
+
+    // Check if authorized
+    result = CharacterDatabase.PQuery("SELECT 1 FROM `character_partybot_authorize` WHERE `guid` = '%u' AND `summoner_id` = '%u'", guid, pPlayer->GetGUIDLow());
+    if (!result)
+    {
+        SendSysMessage("You are not authorized!");
+        SetSentErrorMessage(true);
+        return false;
+    }
+
     float x, y, z;
     pPlayer->GetNearPoint(pPlayer, x, y, z, 0, 5.0f, frand(0.0f, 6.0f));
 
@@ -1042,6 +1108,95 @@ bool ChatHandler::HandlePartyBotLoadCommand(char* args)
     }
 
     PSendSysMessage("Loading %s as party bot.", name.c_str());
+    return true;
+}
+
+bool ChatHandler::HandlePartyBotAuthorizeAddCommand(char* args)
+{
+    Player* pPlayer = m_session->GetPlayer();
+    if (!pPlayer)
+        return false;
+    uint32 guid = pPlayer->GetGUIDLow();
+
+    std::string name = ExtractPlayerNameFromLink(&args);
+    if (name.empty())
+    {
+        SendSysMessage(LANG_PLAYER_NOT_FOUND);
+        SetSentErrorMessage(true);
+        return false;
+    }
+
+    ObjectGuid summoner_id = sObjectMgr.GetPlayerGuidByName(name).GetCounter();
+    if (!summoner_id)
+    {
+        SendSysMessage(LANG_PLAYER_NOT_FOUND);
+        SetSentErrorMessage(true);
+        return false;
+    }
+
+    if (summoner_id.GetCounter() == guid)
+    {
+        SendSysMessage("You can not authorize yourself.");
+        SetSentErrorMessage(true);
+        return false;
+    }
+
+    std::unique_ptr<QueryResult> result(CharacterDatabase.PQuery("SELECT COUNT(*) FROM `character_partybot_authorize` WHERE `guid` = '%u'", guid));
+    if (result)
+    {
+        Field* fields = result->Fetch();
+        if (fields[0].GetUInt32() >= 10)
+        {
+            SendSysMessage("You have reached the maximum number of authorized players (10).");
+            SetSentErrorMessage(true);
+            return false;
+        }
+    }
+
+    CharacterDatabase.PExecute("replace into `character_partybot_authorize` (`guid`, `summoner_id`) VALUES (%u, %u)", guid, summoner_id);
+
+    PSendSysMessage("Partybot authorize add %s.", name.c_str());
+    return true;
+}
+
+bool ChatHandler::HandlePartyBotAuthorizeShowCommand(char* args)
+{
+    Player* pPlayer = m_session->GetPlayer();
+    if (!pPlayer)
+        return false;
+
+    std::unique_ptr<QueryResult> result(CharacterDatabase.PQuery("SELECT summoner_id FROM `character_partybot_authorize` WHERE `guid` = '%u'", pPlayer->GetGUIDLow()));
+    if (!result)
+    {
+        SendSysMessage("No player authorized!");
+        SetSentErrorMessage(true);
+        return false;
+    }
+    else
+    {
+        PSendSysMessage("Partybot authorize show %u records.", result->GetRowCount());
+        do
+        {
+            Field* fields = result->Fetch();
+            ObjectGuid summoner_id = ObjectGuid(HIGHGUID_PLAYER, fields[0].GetUInt32());
+            std::string summoner_name;
+            if (sObjectMgr.GetPlayerNameByGUID(summoner_id, summoner_name))
+                PSendSysMessage("%s", summoner_name.c_str());
+        } while (result->NextRow());
+    }
+
+    return true;
+}
+
+bool ChatHandler::HandlePartyBotAuthorizeClearCommand(char* args)
+{
+    Player* pPlayer = m_session->GetPlayer();
+    if (!pPlayer)
+        return false;
+
+    CharacterDatabase.PExecute("delete from `character_partybot_authorize` where `guid` = '%u'", pPlayer->GetGUIDLow());
+
+    PSendSysMessage("Partybot authorize clear.");
     return true;
 }
 
@@ -1141,6 +1296,18 @@ void StopPartyBotAttackHelper(PartyBotAI* pAI, Player* pBot)
         pBot->StopMoving();
     if (pBot->GetMotionMaster()->GetCurrentMovementGeneratorType() == CHASE_MOTION_TYPE)
         pBot->GetMotionMaster()->Clear();
+    if (Pet* pPet = pBot->GetPet())
+    {
+        if (pPet->IsAlive())
+        {
+            pPet->AttackStop(true);
+            pPet->InterruptNonMeleeSpells(false);
+            if (!pPet->IsStopped())
+                pPet->StopMoving();
+            if (pPet->GetMotionMaster()->GetCurrentMovementGeneratorType() == CHASE_MOTION_TYPE)
+                pPet->GetMotionMaster()->Clear();
+        }
+    }
     if (pAI->m_updateTimer.GetExpiry() < 3000)
         pAI->m_updateTimer.Reset(3000);
 }
@@ -1251,6 +1418,13 @@ bool ChatHandler::HandlePartyBotStopCastingCommand(char * args)
 
 bool ChatHandler::HandlePartyBotToggleCastingCommand(bool allowCasting)
 {
+    if (sWorld.getConfig(CONFIG_PARTYBOT_BANTOGGLECASTINGCOMMAND) == 1)
+    {
+        SendSysMessage("Partybot start&stop casting command is banned.");
+        SetSentErrorMessage(true);
+        return false;
+    }
+
     Player* pPlayer = GetSession()->GetPlayer();
     Player* pTarget = GetSelectedPlayer();
 

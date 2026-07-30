@@ -249,13 +249,38 @@ void Item::UpdateDuration(Player* owner, uint32 diff)
 
     if (GetUInt32Value(ITEM_FIELD_DURATION) <= diff)
     {
+        /*
         owner->DestroyItem(GetBagSlot(), GetSlot(), true);
         return;
+        */
+        // Modification - trading in loot for two hours.
+        if (GetLootingTime())
+        {
+            SetUInt32Value(ITEM_FIELD_DURATION, 0);
+            SetBinding(true);
+            SetLootingTime(0);
+            SetRaidGroup("");
+        }
+        else
+        {
+            owner->DestroyItem(GetBagSlot(), GetSlot(), true);
+        }
     }
 
     SetUInt32Value(ITEM_FIELD_DURATION, GetUInt32Value(ITEM_FIELD_DURATION) - diff);
     SetState(ITEM_CHANGED, owner);                          // save new time in database
 }
+
+// Modification - trading in loot for two hours.
+/*
+void Item::UpdateDurationRaidLooting(uint32 diff)
+{
+    if (!GetUInt32Value(ITEM_FIELD_DURATION))
+        return;
+
+    SetUInt32Value(ITEM_FIELD_DURATION, GetUInt32Value(ITEM_FIELD_DURATION) - diff);
+}
+*/
 
 void Item::SaveToDB()
 {
@@ -859,6 +884,12 @@ void Item::SetState(ItemUpdateState state, Player* forplayer)
     }
 }
 
+// Modification - trading in loot for two hours.
+void Item::SetDurationRaidLooting(uint32 duration)
+{
+    SetUInt32Value(ITEM_FIELD_DURATION, duration);
+}
+
 void Item::AddToUpdateQueueOf(Player* player)
 {
     if (IsInUpdateQueue())
@@ -869,8 +900,10 @@ void Item::AddToUpdateQueueOf(Player* player)
         player = GetOwner();
         if (!player)
         {
-            sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "Item::AddToUpdateQueueOf - %s current owner (%s) not in world!",
-                          GetGuidStr().c_str(), GetOwnerGuid().GetString().c_str());
+            if (GetOwnerGuid())
+            {
+                sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "Item::AddToUpdateQueueOf - %s current owner (%s) not in world!", GetGuidStr().c_str(), GetOwnerGuid().GetString().c_str());
+            }
             return;
         }
     }

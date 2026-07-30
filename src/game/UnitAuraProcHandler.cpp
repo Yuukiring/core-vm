@@ -732,11 +732,11 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit* pVictim, uint32 amount, uint
                     ++triggeredByAura->GetModifier()->m_amount;
                     triggerAmount = triggeredByAura->GetModifier()->m_amount;
 
-                    if (triggerAmount == 50)
+                    if (triggerAmount == 20)
                         MonsterTextEmote(11346, this, true); // begins to crack!
-                    else if (triggerAmount == 100)
+                    else if (triggerAmount == 40)
                         MonsterTextEmote(11347, nullptr, true); // looks ready to shatter!
-                    else if (triggerAmount == 150)
+                    else if (triggerAmount == 60)
                     {
                         RemoveAurasDueToSpell(25937);
                         triggered_spell_id = 25938; // Explode
@@ -793,6 +793,330 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit* pVictim, uint32 amount, uint
 
                     target = this;
                     break;
+                }
+                // Leech Life
+                case 34479:
+                case 34484:
+                case 34485:
+                {
+                    if (this->GetTypeId() != TYPEID_PLAYER)
+                        return SPELL_AURA_PROC_FAILED;
+                    if (!pVictim)
+                        return SPELL_AURA_PROC_FAILED;
+                    int32 leech_life_total = this->HasAura_34477_34478_total();
+                    if (leech_life_total <= 0)
+                        return SPELL_AURA_PROC_FAILED;
+                    // heal amount
+                    basepoints[0] = rand_dither(leech_life_total * amount / 100);
+                    target = this;
+                    triggered_spell_id = 34480;
+                    break;                               // no hidden cooldown
+                }
+                // Hunter: Headshot
+                case 34010:
+                {
+                    if (this->GetTypeId() != TYPEID_PLAYER)
+                        return SPELL_AURA_PROC_FAILED;
+                    if (!pVictim)
+                        return SPELL_AURA_PROC_FAILED;
+                    float headshot_distance = this->GetDistance(pVictim);
+                    float distance_coefficient = 0.5f;
+                    if (headshot_distance >= 20.0f && headshot_distance < 30.0f)
+                    {
+                        distance_coefficient = 0.75f;
+                    }
+                    else if (headshot_distance >= 30.0f)
+                    {
+                        distance_coefficient = 1.0f;
+                    }
+                    basepoints[0] = (rand_dither(this->GetMaxHealth() * 0.35f) >= rand_dither((pVictim->GetHealth() * 0.04f + this->GetTotalAttackPowerValue(RANGED_ATTACK)) * distance_coefficient)) ? rand_dither((pVictim->GetHealth() * 0.04f + this->GetTotalAttackPowerValue(RANGED_ATTACK)) * distance_coefficient) : rand_dither(this->GetMaxHealth() * 0.35f);
+                    target = pVictim;
+                    if (this->HasAura(34302) || this->HasAura(34303))
+                    {
+                        if (Pet* pet = this->GetPet())
+                        {
+                            switch (pet->GetMeleeDamageSchoolMask())
+                            {
+                                case SPELL_SCHOOL_MASK_NORMAL:
+                                    triggered_spell_id = 34011;
+                                    break;
+                                case SPELL_SCHOOL_MASK_HOLY:
+                                    if (this->HasAura(34303))
+                                        triggered_spell_id = 34304;
+                                    else
+                                        triggered_spell_id = 34011;
+                                    break;
+                                case SPELL_SCHOOL_MASK_FIRE:
+                                    triggered_spell_id = 34305;
+                                    break;
+                                case SPELL_SCHOOL_MASK_NATURE:
+                                    triggered_spell_id = 34306;
+                                    break;
+                                case SPELL_SCHOOL_MASK_FROST:
+                                    triggered_spell_id = 34307;
+                                    break;
+                                case SPELL_SCHOOL_MASK_SHADOW:
+                                    if (this->HasAura(34303))
+                                        triggered_spell_id = 34308;
+                                    else
+                                        triggered_spell_id = 34011;
+                                    break;
+                                case SPELL_SCHOOL_MASK_ARCANE:
+                                    if (this->HasAura(34303))
+                                        triggered_spell_id = 34309;
+                                    else
+                                        triggered_spell_id = 34011;
+                                    break;
+                                default:
+                                    triggered_spell_id = 34011;
+                                    break;
+                            }
+                        }
+                        else
+                            triggered_spell_id = 34011;
+                    }
+                    else
+                        triggered_spell_id = 34011;
+                    break;                               // no hidden cooldown
+                }
+                // Druid: Starscourge
+                case 34351:
+                {
+                    if (this->GetTypeId() != TYPEID_PLAYER)
+                        return SPELL_AURA_PROC_FAILED;
+                    // immediately finishes the cooldown on druid's Innervate/Hurricane
+                    auto cdCheck = [](SpellEntry const & spellEntry) -> bool { return ((spellEntry.Id == 29166 || (spellEntry.SpellFamilyName == SPELLFAMILY_DRUID && spellEntry.SpellFamilyFlags == 0x400000)) && spellEntry.GetRecoveryTime() > 0); };
+                    static_cast<Player*>(this)->RemoveSomeCooldown(cdCheck);
+                    if (!pVictim)
+                        return SPELL_AURA_PROC_FAILED;
+                    target = pVictim;
+                    triggered_spell_id = 34352;
+                    break;                               // no hidden cooldown
+                }
+                // Shaman: thundercloud
+                case 34206:
+                {
+                    if (this->GetTypeId() != TYPEID_PLAYER)
+                        return SPELL_AURA_PROC_FAILED;
+                    auto cdCheck = [](SpellEntry const & spellEntry) -> bool { return ((spellEntry.Id == 16166) && spellEntry.GetRecoveryTime() > 0); };
+                    static_cast<Player*>(this)->RemoveSomeCooldown(cdCheck);
+                    if (!pVictim)
+                        return SPELL_AURA_PROC_FAILED;
+                    basepoints[0] = (rand_dither(this->GetMaxHealth() * 0.5f) >= rand_dither(pVictim->GetHealth() * 0.12f)) ? rand_dither(pVictim->GetHealth() * 0.12f) : rand_dither(this->GetMaxHealth() * 0.5f);
+                    target = pVictim;
+                    triggered_spell_id = 34207;
+                    break;                               // no hidden cooldown
+                }
+                // Misha: echo slam
+                case 34195:
+                {
+                    // echo slam target count
+                    uint8 EchoSlamTargetCount = this->GetEnemyCountInRadiusAround(this, 10.0f);
+                    basepoints[0] = rand_dither(triggerAmount * EchoSlamTargetCount + 30.0f);
+                    target = this;
+                    triggered_spell_id = 34196;
+                    break;                               // no hidden cooldown
+                }
+                // Sven: mask of madness
+                case 34193:
+                {
+                    // heal amount
+                    basepoints[0] = rand_dither(triggerAmount * amount / 100);
+                    target = this;
+                    triggered_spell_id = 34194;
+                    break;                               // no hidden cooldown
+                }
+                // Azzinoth's Aura
+                case 34124:
+                {
+                    // heal amount
+                    basepoints[0] = rand_dither(triggerAmount * amount / 100);
+                    target = this;
+                    triggered_spell_id = 34125;
+                    break;                               // no hidden cooldown
+                }
+                // Paladin - Passion
+                case 34357:
+                {
+                    if (this->GetTypeId() != TYPEID_PLAYER)
+                        return SPELL_AURA_PROC_FAILED;
+                    auto cdCheck = [](SpellEntry const & spellEntry) -> bool { return (spellEntry.SpellFamilyName == SPELLFAMILY_PALADIN && spellEntry.SpellFamilyFlags == 0x200000 && spellEntry.GetRecoveryTime() > 0); };
+                    static_cast<Player*>(this)->RemoveSomeCooldown(cdCheck);
+                    return SPELL_AURA_PROC_OK;
+                }
+                // Paladin - Incandescence
+                case 34353:
+                {
+                    if (this->GetTypeId() != TYPEID_PLAYER)
+                        return SPELL_AURA_PROC_FAILED;
+                    auto cdCheck = [](SpellEntry const & spellEntry) -> bool { return ((spellEntry.Id == 34296) && spellEntry.GetRecoveryTime() > 0); };
+                    static_cast<Player*>(this)->RemoveSomeCooldown(cdCheck);
+                    return SPELL_AURA_PROC_OK;
+                }
+                // Druid - Newborn
+                case 34346:
+                {
+                    // mana amount
+                    basepoints[0] = rand_dither(triggerAmount * amount / 100);
+                    target = this;
+                    triggered_spell_id = 34347;
+                    break;                               // no hidden cooldown
+                }
+                // Hunter - Synergy - Rank1
+                case 34297:
+                {
+                    // heal amount
+                    basepoints[0] = rand_dither(triggerAmount * amount / 100);
+                    target = this;
+                    triggered_spell_id = 34299;
+                    break;                               // no hidden cooldown
+                }
+                // Hunter - Synergy - Rank2
+                case 34298:
+                {
+                    // heal amount
+                    basepoints[0] = rand_dither(triggerAmount * amount / 100);
+                    target = this;
+                    triggered_spell_id = 34299;
+                    break;                               // no hidden cooldown
+                }
+                // Succubus - Blood Bath
+                case 34529:
+                {
+                    // heal amount
+                    if (this->HasAura(23836))
+                    {
+                        basepoints[0] = rand_dither(45 * amount / 100);
+                        basepoints[1] = rand_dither(30 * amount / 100);
+                    }
+                    else
+                    {
+                        basepoints[0] = rand_dither(30 * amount / 100);
+                        basepoints[1] = rand_dither(20 * amount / 100);
+                    }
+                    target = this;
+                    triggered_spell_id = 34530;
+                    break;                               // no hidden cooldown
+                }
+                // Felhunter - Mana Break
+                case 34531:
+                {
+                    if (!pVictim)
+                        return SPELL_AURA_PROC_FAILED;
+                    if (pVictim->GetPowerType() != POWER_MANA)
+                        return SPELL_AURA_PROC_FAILED;
+                    // mana burn amount
+                    if (this->HasAura(23840))
+                    {
+                        if (urand(1, 100) < 33)
+                        {
+                            this->CastCustomSpell(pVictim, 34541, {}, rand_dither(300 * amount / 100), {}, true, castItem, triggeredByAura);
+                            return SPELL_AURA_PROC_OK;
+                        }
+                        else
+                        {
+                            basepoints[0] = rand_dither(300 * amount / 100);
+                        }
+                    }
+                    else
+                    {
+                        basepoints[0] = rand_dither(200 * amount / 100);
+                    }
+                    target = pVictim;
+                    triggered_spell_id = 34532;
+                    break;                               // no hidden cooldown
+                }
+                // melee blood drain + 1%
+                case 34144:
+                {
+                    // heal amount
+                    basepoints[0] = rand_dither(triggerAmount * amount / 100);
+                    target = this;
+                    triggered_spell_id = 34150;
+                    break;                               // no hidden cooldown
+                }
+                // melee blood drain + 2%
+                case 34145:
+                {
+                    // heal amount
+                    basepoints[0] = rand_dither(triggerAmount * amount / 100);
+                    target = this;
+                    triggered_spell_id = 34150;
+                    break;                               // no hidden cooldown
+                }
+                // range blood drain + 1%
+                case 34146:
+                {
+                    // heal amount
+                    basepoints[0] = rand_dither(triggerAmount * amount / 100);
+                    target = this;
+                    triggered_spell_id = 34150;
+                    break;                               // no hidden cooldown
+                }
+                // range blood drain + 2%
+                case 34147:
+                {
+                    // heal amount
+                    basepoints[0] = rand_dither(triggerAmount * amount / 100);
+                    target = this;
+                    triggered_spell_id = 34150;
+                    break;                               // no hidden cooldown
+                }
+                // cast blood drain + 1%
+                case 34148:
+                {
+                    // heal amount
+                    basepoints[0] = rand_dither(triggerAmount * amount / 100);
+                    target = this;
+                    triggered_spell_id = 34150;
+                    break;                               // no hidden cooldown
+                }
+                // cast blood drain + 2%
+                case 34149:
+                {
+                    // heal amount
+                    basepoints[0] = rand_dither(triggerAmount * amount / 100);
+                    target = this;
+                    triggered_spell_id = 34150;
+                    break;                               // no hidden cooldown
+                }
+                // Bloodborne Gehrman blood drain + 100%
+                case 34271:
+                {
+                    // heal amount
+                    basepoints[0] = rand_dither(triggerAmount * amount / 100);
+                    target = this;
+                    triggered_spell_id = 34272;
+                    break;                               // no hidden cooldown
+                }
+                // Ao Xue Zhan Yi
+                case 34327:
+                {
+                    if (this->HasUnitState(UNIT_STATE_STUNNED | UNIT_STATE_ROOT))
+                    {
+                        basepoints[0] = rand_dither(this->GetMaxHealth() * 0.05f);
+                        basepoints[1] = 100;
+                        target = this;
+                        triggered_spell_id = 34328;
+                    }
+                    else
+                        return SPELL_AURA_PROC_FAILED;
+                    break;
+                }
+                // priest: impenetrable thorns
+                case 34513:
+                {
+                    if (this->GetTypeId() != TYPEID_PLAYER)
+                        return SPELL_AURA_PROC_FAILED;
+                    if (!pVictim)
+                        return SPELL_AURA_PROC_FAILED;
+                    if (!this->HasAura(6788))
+                        return SPELL_AURA_PROC_FAILED;
+                    // reflect damage amount
+                    basepoints[0] = rand_dither(amount * 0.25f + this->GetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS + SPELL_SCHOOL_SHADOW) * 0.25f);
+                    target = pVictim;
+                    triggered_spell_id = 34514;
+                    break;                               // no hidden cooldown
                 }
                 // Obsidian Armor (Justice Bearer`s Pauldrons shoulder)
                 case 27539:
@@ -862,12 +1186,88 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit* pVictim, uint32 amount, uint
                 triggered_spell_id = 29077;
                 break;
             }
+            switch (dummySpell->Id)
+            {
+                // Flame, Grant me Strength
+                case 34500:
+                {
+                    if (!pVictim)
+                        return SPELL_AURA_PROC_FAILED;
+
+                    if (procEx & PROC_EX_CRITICAL_HIT)
+                    {
+                        if (HasAura(34501))
+                        {
+                            RemoveAurasDueToSpell(34501);
+                            CastSpell(this, 34502, true, castItem, triggeredByAura);
+                            return SPELL_AURA_PROC_OK;
+                        }
+                        else
+                        {
+                            CastSpell(this, 34501, true, castItem, triggeredByAura);
+                            return SPELL_AURA_PROC_OK;
+                        }
+                    }
+                    else
+                    {
+                        if (HasAura(34501))
+                            RemoveAurasDueToSpell(34501);
+                        return SPELL_AURA_PROC_FAILED;
+                    }
+
+                    return SPELL_AURA_PROC_OK;
+                }
+                // Deep Freeze
+                case 34507:
+                {
+                    if (this->GetTypeId() != TYPEID_PLAYER)
+                        return SPELL_AURA_PROC_FAILED;
+                    if (!pVictim)
+                        return SPELL_AURA_PROC_FAILED;
+
+                    if (pVictim->IsImmuneToSpell(sSpellMgr.GetSpellEntry(34508), false) || pVictim->HasAura(34508))
+                    {
+                        basepoints[0] = rand_dither(this->GetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS + SPELL_SCHOOL_FROST) * 2.0f);
+                        target = pVictim;
+                        triggered_spell_id = 34509;
+                    }
+                    else
+                    {
+                        target = pVictim;
+                        triggered_spell_id = 34508;
+                    }
+                    break;
+                }
+            }
             break;
         }
         case SPELLFAMILY_WARRIOR:
             break;
         case SPELLFAMILY_WARLOCK:
+        {
+            switch (dummySpell->Id)
+            {
+                // Warlock - Unstable Affliction - Rank1
+                case 34310:
+                {
+                    // heal amount
+                    basepoints[0] = rand_dither(triggerAmount * amount / 100);
+                    target = this;
+                    triggered_spell_id = 34312;
+                    break;                               // no hidden cooldown
+                }
+                // Warlock - Unstable Affliction - Rank2
+                case 34311:
+                {
+                    // heal amount
+                    basepoints[0] = rand_dither(triggerAmount * amount / 100);
+                    target = this;
+                    triggered_spell_id = 34312;
+                    break;                               // no hidden cooldown
+                }
+            }
             break;
+        }
         case SPELLFAMILY_PRIEST:
         {
             switch (dummySpell->Id)
@@ -889,7 +1289,20 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit* pVictim, uint32 amount, uint
                     if (basepoints[0] < 1)
                         basepoints[0] = 1;
 
-                    pVictim->CastCustomSpell(pVictim, 15290, basepoints[0], {}, {}, true, castItem, triggeredByAura);
+                    // 34341 - Shadow Distortion
+                    if (pVictim->HasAura(34341))
+                    {
+                        // mana amount
+                        basepoints[1] = rand_dither(amount / 20);
+                        if (basepoints[1] < 1)
+                            basepoints[1] = 1;
+                        pVictim->CastCustomSpell(pVictim, 34342, basepoints[0], basepoints[1], {}, true, castItem, triggeredByAura);
+                    }
+                    else
+                    {
+                        pVictim->CastCustomSpell(pVictim, 15290, basepoints[0], {}, {}, true, castItem, triggeredByAura);
+                    }
+
                     return SPELL_AURA_PROC_OK;                                // no hidden cooldown
                 }
                 // Oracle Healing Bonus ("Garments of the Oracle" set)
@@ -933,6 +1346,92 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit* pVictim, uint32 amount, uint
                     triggered_spell_id = 28848;
                     break;
                 }
+                // Feline Swiftness
+                case 24864:
+                case 24867:
+                {
+                    target = this;
+                    triggered_spell_id = 34544;
+                    break;
+                }
+                // Mangle rank 1
+                case 16966:
+                {
+                    if (this->GetTypeId() != TYPEID_PLAYER)
+                        return SPELL_AURA_PROC_FAILED;
+                    if (!pVictim)
+                        return SPELL_AURA_PROC_FAILED;
+                    Unit::AuraList const& auras = pVictim->GetAurasByType(SPELL_AURA_PERIODIC_DAMAGE);
+                    uint32 bleed_count = 0;
+                    for (const auto i : auras)
+                    {
+                        // Rip
+                        if (i->GetSpellProto()->IsFitToFamily<SPELLFAMILY_DRUID, CF_DRUID_RIP_BITE>() &&
+                            i->GetCasterGuid() == this->GetObjectGuid())
+                        {
+                            bleed_count++;
+                            break;
+                        }
+                    }
+                    for (const auto i : auras)
+                    {
+                        // Rake
+                        if (i->GetSpellProto()->IsFitToFamily<SPELLFAMILY_DRUID, CF_DRUID_RAKE_CLAW>() &&
+                            i->GetCasterGuid() == this->GetObjectGuid())
+                        {
+                            bleed_count++;
+                            break;
+                        }
+                    }
+                    if (!bleed_count)
+                        return SPELL_AURA_PROC_FAILED;
+                    // heal amount
+                    basepoints[0] = rand_dither(25 * bleed_count * amount / 100);
+                    target = this;
+                    triggered_spell_id = 34543;
+                    break;
+                }
+                // Mangle rank 2
+                case 16968:
+                {
+                    if (this->GetTypeId() != TYPEID_PLAYER)
+                        return SPELL_AURA_PROC_FAILED;
+                    if (!pVictim)
+                        return SPELL_AURA_PROC_FAILED;
+                    Unit::AuraList const& auras = pVictim->GetAurasByType(SPELL_AURA_PERIODIC_DAMAGE);
+                    uint32 bleed_count = 0;
+                    for (const auto i : auras)
+                    {
+                        // Rip
+                        if (i->GetSpellProto()->IsFitToFamily<SPELLFAMILY_DRUID, CF_DRUID_RIP_BITE>() &&
+                            i->GetCasterGuid() == this->GetObjectGuid())
+                        {
+                            bleed_count++;
+                            break;
+                        }
+                    }
+                    for (const auto i : auras)
+                    {
+                        // Rake
+                        if (i->GetSpellProto()->IsFitToFamily<SPELLFAMILY_DRUID, CF_DRUID_RAKE_CLAW>() &&
+                            i->GetCasterGuid() == this->GetObjectGuid())
+                        {
+                            bleed_count++;
+                            break;
+                        }
+                    }
+                    if (!bleed_count)
+                        return SPELL_AURA_PROC_FAILED;
+                    // heal amount
+                    if (pVictim->GetHealthPercent() < 50.0f)
+                        bleed_count *= 2;
+                    if (this->GetHealthPercent() < 50.0f)
+                        bleed_count *= 2;
+                    basepoints[0] = rand_dither(25 * bleed_count * amount / 100);
+                    target = this;
+                    triggered_spell_id = 34543;
+                    break;
+                }
             }
             break;
         }
@@ -973,7 +1472,25 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit* pVictim, uint32 amount, uint
             break;
         }
         case SPELLFAMILY_HUNTER:
+        {
+            switch (dummySpell->Id)
+            {
+                // Ranged Weapon Specialization
+                case 19507:
+                case 19508:
+                case 19509:
+                case 19510:
+                case 19511:
+                {
+                    // mana amount
+                    basepoints[0] = rand_dither(triggerAmount * amount / 100);
+                    target = this;
+                    triggered_spell_id = 34570;
+                    break;                               // no hidden cooldown
+                }
+            }
             break;
+        }
         case SPELLFAMILY_PALADIN:
         {
             // Seal of Righteousness - melee proc dummy
@@ -1022,6 +1539,10 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit* pVictim, uint32 amount, uint
 
                 Item *item = ((Player*)this)->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_MAINHAND);
                 float speed = (item ? item->GetProto()->Delay : BASE_ATTACK_TIME) / 1000.0f;
+
+                // Improved Seal of Righteousness - 20332
+                if (this->HasAura(20332))
+                    triggerAmount += this->GetMaxPower(POWER_MANA);
 
                 float minDmg = triggerAmount / 87.0f;
                 float maxDmg = triggerAmount / 25.0f;
@@ -1484,9 +2005,18 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit* pVictim, uint32 a
                     uint32 originalSpellId;
                     switch (procSpell->Id)
                     {
-                        case 25914: originalSpellId = 20473; break;
-                        case 25913: originalSpellId = 20929; break;
-                        case 25903: originalSpellId = 20930; break;
+                        case 25914:
+                        case 25912:
+                            originalSpellId = 20473;
+                            break;
+                        case 25913:
+                        case 25911:
+                            originalSpellId = 20929;
+                            break;
+                        case 25903:
+                        case 25902:
+                            originalSpellId = 20930;
+                            break;
                         default:
                             sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "Unit::HandleProcTriggerSpell: Spell %u not handled in HShock", procSpell->Id);
                             return SPELL_AURA_PROC_FAILED;
@@ -1665,6 +2195,19 @@ SpellAuraProcResult Unit::HandleProcTriggerDamageAuraProc(Unit* pVictim, uint32 
 
     SpellNonMeleeDamage damageInfo(this, pVictim, spellInfo->Id, static_cast<SpellSchools>(spellInfo->School));
     float fdamage = CalculateSpellEffectValue(pVictim, spellInfo, triggeredByAura->GetEffIndex());
+
+    // Paladin - Holy Shield : damage bonus 7.5% max health and 5% armor
+    switch (spellInfo->Id)
+    {
+        case 20925: // Rank 1
+        case 20927: // Rank 2
+        case 20928: // Rank 3
+        {
+            fdamage += (triggeredByAura->GetCaster()->GetMaxHealth() * 0.075f + triggeredByAura->GetCaster()->GetArmor() * 0.05f);
+        }
+        break; 
+    }
+
     fdamage = SpellDamageBonusDone(pVictim, spellInfo, triggeredByAura->GetEffIndex(), fdamage, SPELL_DIRECT_DAMAGE);
     fdamage = pVictim->SpellDamageBonusTaken(this, spellInfo, triggeredByAura->GetEffIndex(), fdamage, SPELL_DIRECT_DAMAGE);
     damageInfo.damage = rand_ditheru(fdamage);

@@ -106,12 +106,18 @@ void AuctionHouseBotMgr::Update(bool force /* = false */)
     uint32 auctions     = auctionHouse->GetCount();
     uint32 items        = m_config->itemcount;
     uint32 entriesCount = m_items.size();
+    uint32 updateCount = 0;
 
     while (auctions < items)
     {
         AuctionHouseBotEntry item = m_items[urand(0, entriesCount - 1)];
         AddItem(item, auctionHouse);
         auctions++;
+        updateCount++;
+        if (m_config->enable && !force && updateCount >= 50)
+        {
+            break; // Limit to 50 items per update to avoid performance issues
+        }
     }
 }
 
@@ -124,6 +130,28 @@ void AuctionHouseBotMgr::AddItem(AuctionHouseBotEntry e, AuctionHouseObject *auc
     {
         sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "AHBot::AddItem() : Item %u does not exist.", e.item);
         return;
+    }
+
+    if (prototype->ItemId == 26010 || prototype->ItemId == 26020 || prototype->ItemId == 26021 ||
+        prototype->ItemId == 26022 || prototype->ItemId == 26023 || prototype->ItemId == 26024 ||
+        prototype->ItemId == 26027 || prototype->ItemId == 26028 || prototype->ItemId == 26029 ||
+        prototype->ItemId == 26032 || prototype->ItemId == 26034 || prototype->ItemId == 26035 ||
+        prototype->ItemId == 26036 || prototype->ItemId == 26037 || prototype->ItemId == 26038 ||
+        prototype->ItemId == 26044 || prototype->ItemId == 26045 || prototype->ItemId == 26046 ||
+        prototype->ItemId == 26047 || prototype->ItemId == 26049 || prototype->ItemId == 26050)
+    {
+        if (urand(1, 100) < 90)
+            return; // 90% chance to not add this item
+    }
+    else if ((prototype->ItemId >= 26052 && prototype->ItemId <= 26135) || (prototype->ItemId >= 26236 && prototype->ItemId <= 26254))
+    {
+        if (urand(1, 100) < 80)
+            return; // 80% chance to not add this item
+    }
+    else if (prototype->ItemId == 26030)
+    {
+        if (urand(1, 100) < 75)
+            return; // 75% chance to not add this item
     }
 
     Item* item = Item::CreateItem(e.item, 1);

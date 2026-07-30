@@ -34,9 +34,9 @@ struct DruidFerociousBiteScript : SpellScript
             // - Ferocious Bite: Book of Ferocious Bite (Rank 5) now drops off The
             //   Beast in Black Rock Spire. In addition, Ferocious Bite now increases
             //   in potency with greater attack power.
-            // ( AP * 3% * combo + energy * 2,7 + damage )
+            // ( AP * 4% * combo + energy * 2,7 + damage )
             if (uint32 combo = ((Player*)pPlayer)->GetComboPoints())
-                spell->damage += pPlayer->GetTotalAttackPowerValue(BASE_ATTACK) * combo * 0.03f;
+                spell->damage += pPlayer->GetTotalAttackPowerValue(BASE_ATTACK) * combo * 0.04f;
 #endif
 
             spell->damage += pPlayer->GetPower(POWER_ENERGY) * spell->m_spellInfo->DmgMultiplier[effIdx];
@@ -144,9 +144,9 @@ struct DruidSwiftmendScript : SpellScript
             float tickheal = targetAura->GetModifier()->m_amount;
             int32 tickcount = 0;
             // Regrowth : 0x40
-            // "18 sec of Regrowth" -> 6 ticks
+            // "18 sec of Regrowth" -> 7 ticks
             if (targetAura->GetSpellProto()->IsFitToFamilyMask<CF_DRUID_REGROWTH>())
-                tickcount = 6;
+                tickcount = 7;
             // Rejuvenation : 0x10
             // "12 sec of Rejuvenation" -> 4 ticks
             if (targetAura->GetSpellProto()->IsFitToFamilyMask<CF_DRUID_REJUVENATION>())
@@ -156,6 +156,8 @@ struct DruidSwiftmendScript : SpellScript
             spell->GetUnitTarget()->RemoveAurasDueToSpell(targetAura->GetId());
 
             spell->damage += tickheal * tickcount;
+            if (Player* pPlayer = spell->m_caster->ToPlayer())
+                spell->damage += pPlayer->SpellBaseHealingBonusDone(targetAura->GetSpellProto()->GetSpellSchoolMask()) * 0.5f;
         }
 #endif
         return true;
