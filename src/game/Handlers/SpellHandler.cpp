@@ -31,6 +31,10 @@
 #include "GameObject.h"
 #include "Map.h"
 
+#ifdef ENABLE_ELUNA
+#include "LuaEngine.h"
+#endif
+
 using namespace Spells;
 
 void WorldSession::HandleUseItemOpcode(WorldPackets::Spell::UseItem const& packet)
@@ -136,7 +140,12 @@ void WorldSession::HandleUseItemOpcode(WorldPackets::Spell::UseItem const& packe
         return;
     }
 
-    pUser->CastItemUseSpell(pItem, const_cast<SpellCastTargets&>(packet.targets));
+#ifdef ENABLE_ELUNA
+    if (Eluna* e = pUser->GetEluna())
+        if (!e->OnUse(pUser, pItem, const_cast<SpellCastTargets&>(packet.targets)))
+            return;
+#endif
+		pUser->CastItemUseSpell(pItem, const_cast<SpellCastTargets&>(packet.targets));
 }
 
 void WorldSession::HandleOpenItemOpcode(WorldPackets::Spell::OpenItem const& packet)

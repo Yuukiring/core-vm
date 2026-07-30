@@ -44,6 +44,10 @@
 
 #include <memory>
 
+#ifdef ENABLE_ELUNA
+#include "LuaEngine.h"
+#endif /* ENABLE_ELUNA */
+
 #if defined( __GNUC__ )
 #pragma pack(1)
 #else
@@ -172,6 +176,12 @@ WorldSocket::HandlerResult WorldSocket::_HandleCompleteReceivedPacket(std::uniqu
                     sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "WorldSocket::ProcessIncoming: Player send CMSG_AUTH_SESSION again");
                     return HandlerResult::Fail;
                 }
+
+#ifdef ENABLE_ELUNA
+                if (!sWorld.GetEluna()->OnPacketReceive(m_Session, *packet))
+                    return HandlerResult::Okay;
+#endif /* ENABLE_ELUNA */
+
                 return _HandleAuthSession(*packet);
             default:
                 if (m_Session == nullptr)

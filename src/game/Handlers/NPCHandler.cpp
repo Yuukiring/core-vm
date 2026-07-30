@@ -36,6 +36,9 @@
 #include "Spell.h"
 #include "Chat.h"
 #include "CharacterDatabaseCache.h"
+#ifdef ENABLE_ELUNA
+#include "LuaEngine.h"
+#endif /* ENABLE_ELUNA */
 
 enum StableResultCode
 {
@@ -411,6 +414,32 @@ void WorldSession::HandleGossipSelectOptionOpcode(WorldPackets::Npc::GossipSelec
         if (!sScriptMgr.OnGossipSelect(_player, pGo, sender, action, code))
             _player->OnGossipSelect(pGo, packet.gossipListId);
     }
+#ifdef ENABLE_ELUNA
+    else if (packet.guid.IsItem())
+    {
+        Item* item = GetPlayer()->GetItemByGuid(packet.guid);
+        if (!item)
+        {
+            sLog.Out(LOG_BASIC, LOG_LVL_DEBUG, "WORLD: HandleGossipSelectOptionOpcode - %s not found or you can't interact with it.", packet.guid.GetString().c_str());
+            return;
+        }
+
+        if (Eluna* e = GetPlayer()->GetEluna())
+            e->HandleGossipSelectOption(GetPlayer(), item, GetPlayer()->PlayerTalkClass->GossipOptionSender(packet.gossipListId), GetPlayer()->PlayerTalkClass->GossipOptionAction(packet.gossipListId), code);
+    }
+    else if (packet.guid.IsPlayer())
+    {
+        if (GetPlayer()->GetGUIDLow() != packet.guid)
+        {
+            sLog.Out(LOG_BASIC, LOG_LVL_DEBUG, "WORLD: HandleGossipSelectOptionOpcode - %s not found or you can't interact with it.", packet.guid.GetString().c_str());
+            return;
+        }
+
+        if (Eluna* e = GetPlayer()->GetEluna())
+            e->HandleGossipSelectOption(GetPlayer(), GetPlayer()->PlayerTalkClass->GetGossipMenu().GetMenuId(), GetPlayer()->PlayerTalkClass->GossipOptionSender(packet.gossipListId), GetPlayer()->PlayerTalkClass->GossipOptionAction(packet.gossipListId), code);
+    }
+#endif
+
 }
 
 void WorldSession::HandleSpiritHealerActivateOpcode(WorldPackets::Npc::SpiritHealerActivate const& packet)

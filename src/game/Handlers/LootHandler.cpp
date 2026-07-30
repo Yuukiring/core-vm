@@ -40,6 +40,10 @@
 #include "Anticheat.h"
 #include "Utilities/Random.h"
 
+#ifdef ENABLE_ELUNA
+#include "LuaEngine.h"
+#endif /* ENABLE_ELUNA */
+
 void WorldSession::HandleAutostoreLootItemOpcode(WorldPackets::Loot::AutoStoreLootItem const& packet)
 {
     Player*    player = GetPlayer();
@@ -225,10 +229,14 @@ void WorldSession::HandleAutostoreLootItemOpcode(WorldPackets::Loot::AutoStoreLo
 
         --loot->unlootedCount;
 
-
         sLog.Player(this, LOG_LOOTS, LOG_LVL_MINIMAL, "%s loots %ux%u [loot from %s]", _player->GetShortDescription().c_str(), item->count, item->itemid, lguid.GetString().c_str());
         player->SendNewItem(newitem, uint32(item->count), false, false, true);
         player->OnReceivedItem(newitem);
+
+#ifdef ENABLE_ELUNA
+        if (Eluna* e = player->GetEluna())
+            e->OnLootItem(player, newitem, uint32(item->count), newitem->GetObjectGuid());
+#endif
     }
     else
         player->SendEquipError(msg, nullptr, nullptr, 0, item->itemid);
@@ -330,6 +338,11 @@ void WorldSession::HandleLootMoneyOpcode(NullClientPacket const& /*packet*/)
             // in wotlk and after this should be sent for solo looting too
             //player->SendLootMoneyNotify(pLoot->gold);
         }
+        // Used by Eluna
+#ifdef ENABLE_ELUNA
+        if (Eluna* e = player->GetEluna())
+            e->OnLootMoney(player, pLoot->gold);
+#endif /* ENABLE_ELUNA */
 
         pLoot->gold = 0;
 

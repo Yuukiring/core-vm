@@ -538,6 +538,19 @@ else()
   )
 endif()
 
+if(SCRIPT_LIB_ELUNA)
+    file(GLOB SRC_GRP_ELUNA 
+        ${CMAKE_SOURCE_DIR}/src/modules/Eluna/*.cpp
+        ${CMAKE_SOURCE_DIR}/src/modules/Eluna/*.h
+        ${CMAKE_SOURCE_DIR}/src/modules/Eluna/hooks/*.cpp
+        ${CMAKE_SOURCE_DIR}/src/modules/Eluna/hooks/*.h
+        ${CMAKE_SOURCE_DIR}/src/modules/Eluna/methods/*.cpp
+        ${CMAKE_SOURCE_DIR}/src/modules/Eluna/methods/VMangos/*.h
+    )
+
+	list(APPEND game_SRCS ${SRC_GRP_ELUNA})
+endif()
+
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/AI
@@ -578,6 +591,7 @@ include_directories(
   ${MYSQL_INCLUDE_DIR}
   ${OPENSSL_INCLUDE_DIR}
   ${ZLIB_INCLUDE_DIRS}
+  $<$<BOOL:${SCRIPT_LIB_ELUNA}>:${SRC_GRP_ELUNA}>
 )
 
 if(WIN32)
@@ -616,6 +630,10 @@ source_group("Anticheat"
   REGULAR_EXPRESSION Anticheat
 )
 
+if(SCRIPT_LIB_ELUNA)
+    source_group("Eluna" FILES ${SRC_GRP_ELUNA})
+endif()
+
 add_library(game STATIC
   ${game_SRCS}
 )
@@ -630,6 +648,21 @@ target_link_libraries(game
   shared
   Detour
   g3dlite
+  $<$<BOOL:${SCRIPT_LIB_ELUNA}>:lualib>
+)
+target_compile_definitions(game
+    PUBLIC
+      $<$<BOOL:${SCRIPT_LIB_ELUNA}>:ENABLE_ELUNA>
+      $<$<BOOL:${SCRIPT_LIB_ELUNA}>:ELUNA_EXPANSION=0>
+      $<$<BOOL:${SCRIPT_LIB_ELUNA}>:ELUNA_VMANGOS>
+)
+target_include_directories(game
+    PUBLIC
+      $<$<BOOL:${SCRIPT_LIB_ELUNA}>:
+            ${CMAKE_SOURCE_DIR}/src/modules/Eluna
+            ${CMAKE_SOURCE_DIR}/src/modules/Eluna/hooks/
+            ${CMAKE_SOURCE_DIR}/src/modules/Eluna/methods/VMangos
+        >
 )
 
 #add_dependencies(game revision.h)
@@ -663,4 +696,12 @@ else()
       ScriptMgr.h
       )
   endif()
+endif()
+
+
+if(SCRIPT_LIB_ELUNA)
+install(
+    DIRECTORY ${CMAKE_SOURCE_DIR}/src/modules/Eluna/extensions
+    DESTINATION ${BIN_DIR}/lua_scripts
+)
 endif()

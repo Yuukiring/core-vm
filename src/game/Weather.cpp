@@ -34,6 +34,10 @@
 #include "ProgressBar.h"
 #include "Utilities/Random.h"
 
+#ifdef ENABLE_ELUNA
+#include "LuaEngine.h"
+#endif /* ENABLE_ELUNA */
+
 INSTANTIATE_SINGLETON_1(WeatherMgr);
 
 // Weather sound defines ( only for 1.12 )
@@ -250,6 +254,10 @@ bool Weather::SendWeatherForPlayersInZone(Map const* _map)
     // Log the event
     LogWeatherState(GetWeatherState());
 
+#ifdef ENABLE_ELUNA
+    if (Eluna* e = sWorld.GetEluna())
+        e->OnChange(this, m_zone, GetWeatherState(), m_grade);
+#endif /* ENABLE_ELUNA */
     return true;
 }
 

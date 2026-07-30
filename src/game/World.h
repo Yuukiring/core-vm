@@ -38,6 +38,11 @@
 #include "LockedQueue.h"
 
 #include <atomic>
+
+#ifdef ENABLE_ELUNA
+#include "ElunaMgr.h"
+#endif
+
 #include <map>
 #include <set>
 #include <list>
@@ -46,7 +51,11 @@
 #include <unordered_map>
 #include <thread>
 
+
 class ServerPacket;
+#ifdef ENABLE_ELUNA
+class Eluna;
+#endif
 class Object;
 class WorldSession;
 class Player;
@@ -894,6 +903,10 @@ class World
         Messager<World>& GetMessager() { return m_messager; }
 
         LFGQueue& GetLFGQueue() { return m_lfgQueue; }
+
+#ifdef ENABLE_ELUNA
+        Eluna* GetEluna() const { return sElunaMgr->Get(m_elunaInfo); }
+#endif
     protected:
         void _UpdateGameTime();
         // callback for UpdateRealmCharacters
@@ -1004,6 +1017,10 @@ class World
         static uint32 m_currentDiff;
 
         Messager<World> m_messager;
+
+#ifdef ENABLE_ELUNA
+        ElunaInfo m_elunaInfo;
+#endif
 };
 
 extern uint32 realmID;

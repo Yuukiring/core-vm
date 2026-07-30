@@ -33,6 +33,10 @@
 #include "ScriptMgr.h"
 #include "Group.h"
 
+#ifdef ENABLE_ELUNA
+#include "LuaEngine.h"
+#endif /* ENABLE_ELUNA */
+
 void WorldSession::HandleQuestgiverStatusQueryOpcode(WorldPackets::Quest::QuestgiverStatusQuery const& packet)
 {
     uint8 dialogStatus = DIALOG_STATUS_NONE;
@@ -326,6 +330,13 @@ void WorldSession::HandleQuestLogSwapQuest(WorldPackets::Quest::QuestLogSwapQues
 
 void WorldSession::HandleQuestLogRemoveQuest(WorldPackets::Quest::QuestLogRemoveQuest const& packet)
 {
+#ifdef ENABLE_ELUNA
+    if (packet.slot < MAX_QUEST_LOG_SIZE)
+        if(uint32 quest = _player->GetQuestSlotQuestId(packet.slot))
+            if (Eluna* e = _player->GetEluna())
+                e->OnQuestAbandon(_player, quest);
+#endif
+
     _player->RemoveQuestAtSlot(packet.slot);
 }
 

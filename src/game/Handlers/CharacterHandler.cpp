@@ -44,6 +44,10 @@
 #include "MapManager.h"
 #include "AccountMgr.h"
 
+#ifdef ENABLE_ELUNA
+#include "LuaEngine.h"
+#endif
+
 class LoginQueryHolder : public SqlQueryHolder
 {
 private:
@@ -319,6 +323,19 @@ void WorldSession::HandleCharCreateOpcode(WorldPackets::Character::CharCreate co
     {
         sendResponse(CHAR_CREATE_ERROR);
     }
+    // Used by Eluna
+#ifdef ENABLE_ELUNA
+	Player* pNewChar = new Player(this);
+	if (!pNewChar->Create(sObjectMgr.GeneratePlayerLowGuid(), packet.name, packet.race, packet.class_, packet.gender, packet.skin, packet.face, packet.hairStyle, packet.hairColor, packet.facialHair))
+	{
+		// Player not create (race/class problem?)
+		delete pNewChar;
+		return;
+	}
+    if (Eluna* e = sWorld.GetEluna())
+        e->OnCreate(pNewChar);
+	delete pNewChar;
+#endif /* ENABLE_ELUNA */
 }
 
 void WorldSession::HandleCharDeleteOpcode(WorldPackets::Character::CharDelete const& packet)
@@ -357,6 +374,12 @@ void WorldSession::HandleCharDeleteOpcode(WorldPackets::Character::CharDelete co
         return;
 
     sLog.Player(this, LOG_CHAR, "Delete", LOG_LVL_BASIC, "Character %s guid %u", name.c_str(), packet.guid);
+
+    // Used by Eluna
+#ifdef ENABLE_ELUNA
+    if (Eluna* e = sWorld.GetEluna())
+        e->OnDelete(lowguid);
+#endif
 
     // If the character is online (ALT-F4 logout for example)
     if (Player* onlinePlayer = sObjectAccessor.FindPlayer(packet.guid))
@@ -664,6 +687,13 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder *holder)
         SendNotification(LANG_RESET_TALENTS);               // we can use SMSG_TALENTS_INVOLUNTARILY_RESET here
     }
 
+    // Used by Eluna
+#ifdef ENABLE_ELUNA
+    if (pCurrChar->m_playedTime[PLAYED_TIME_TOTAL] == 0)
+        if (Eluna* e = sWorld.GetEluna())
+            e->OnFirstLogin(pCurrChar);
+#endif
+
     // show time before shutdown if shutdown planned.
     if (sWorld.IsShutdowning())
         sWorld.ShutdownMsg(true, pCurrChar);
@@ -701,6 +731,18 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder *holder)
     if (sWorld.getConfig(CONFIG_BOOL_SEND_LOOT_ROLL_UPON_RECONNECT) && alreadyOnline)
         if (Group* pGroup = pCurrChar->GetGroup())
             pGroup->SendLootStartRollsForPlayer(pCurrChar);
+
+    // Update warden speeds
+    //if (GetWarden())
+        //for (int i = 0; i < MAX_MOVE_TYPE; ++i)
+            //GetWarden()->SendSpeedChange(UnitMoveType(i), pCurrChar->GetSpeed(UnitMoveType(i)));
+
+    // Used by Eluna
+#ifdef ENABLE_ELUNA
+    if (Eluna* e = sWorld.GetEluna())
+        e->OnLogin(pCurrChar);
+#endif
+
 }
 
 void WorldSession::HandleSetFactionAtWarOpcode(WorldPackets::Misc::SetFactionAtWar const& packet)
